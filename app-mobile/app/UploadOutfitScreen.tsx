@@ -12,6 +12,7 @@ import {
 import { useNavigation } from "@react-navigation/native";
 import * as ImagePicker from "expo-image-picker";
 import { useLooks } from "../context/LooksContext";
+import { auth } from "../services/firebase";
 
 type AiResult = {
   score: number;
@@ -19,6 +20,8 @@ type AiResult = {
   notes: string[];
   tags: string[];
 };
+
+const API_BASE_URL = "http://localhost:4000/api"; // change to your server URL if needed
 
 export default function UploadOutfitScreen() {
   const navigation = useNavigation<any>();
@@ -32,6 +35,71 @@ export default function UploadOutfitScreen() {
 
   const FALLBACK_IMAGE =
     "https://images.unsplash.com/photo-1516646255117-d56e0c644dcd?auto=format&fit=crop&w=900&q=80";
+
+  // --- backend sync helper (does NOT change UI even if it fails) ---
+const syncLookToBackend = async (localImageDataUrl: string, ai: AiResult) => {
+  try {
+    const currentUser = auth.currentUser;
+    if (!currentUser) {
+      console.log("No Firebase user, skipping backend sync.");
+      return;
+    }
+
+    const token = await currentUser.getIdToken();
+
+    // 1) Upload image to S3 via backend
+    const uploadRes = await fetch(`${API_BASE_URL}/upload-image`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        imageBase64: localImageDataUrl, // can be data URL or pure base64
+      }),
+    });
+
+    if (!uploadRes.ok) {
+      const text = await uploadRes.text();
+      console.log("Failed to upload image to backend/S3:", uploadRes.status, text);
+      return;
+    }
+
+    const uploadJson = await uploadRes.json();
+    const s3Url: string | undefined = uploadJson.url;
+
+    if (!s3Url) {
+      console.log("Upload endpoint did not return a URL.");
+      return;
+    }
+
+    // 2) Create wardrobe entry with S3 URL
+    const wardrobeRes = await fetch(`${API_BASE_URL}/wardrobe`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        imageUrl: s3Url,
+        score: ai.score,
+        vibe: ai.vibe,
+        tags: ai.tags,
+        notes: ai.notes,
+      }),
+    });
+
+    if (!wardrobeRes.ok) {
+      const text = await wardrobeRes.text();
+      console.log("Failed to sync look to backend:", wardrobeRes.status, text);
+    } else {
+      console.log("Look synced to backend with S3 URL");
+    }
+  } catch (err) {
+    console.log("Error syncing look to backend:", err);
+  }
+};
+
 
   const handlePickImage = async () => {
     try {
@@ -110,20 +178,28 @@ export default function UploadOutfitScreen() {
       return;
     }
 
+    // local persistent URI (base64 data URL fallback)
     const persistentUri =
       imageBase64 != null
         ? `data:image/jpeg;base64,${imageBase64}`
         : imageUri;
 
     try {
+      // 1) local add (LooksContext + AsyncStorage) – what you already had
       addLook({
-        imageUri: persistentUri,
+        imageUri: persistentUri ?? null,
         score: aiResult.score,
         vibe: aiResult.vibe,
         tags: aiResult.tags,
         notes: aiResult.notes,
       });
 
+      // 2) backend sync (fire and forget, no UI blocking)
+      if (persistentUri) {
+        void syncLookToBackend(persistentUri, aiResult);
+      }
+
+      // 3) navigate like before
       navigation.navigate("Home");
     } catch (err) {
       console.log("Failed to save outfit to wardrobe:", err);
@@ -419,7 +495,7 @@ const styles = StyleSheet.create({
   outfitImage: {
     width: "100%",
     aspectRatio: 3 / 4,
-    maxHeight: 360, // 🔑 keeps it FB-feed sized, not full screen
+    maxHeight: 360,
     borderRadius: 16,
     marginBottom: 10,
     backgroundColor: "#020617",
