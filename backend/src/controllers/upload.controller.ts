@@ -1,7 +1,11 @@
 // src/controllers/upload.controller.ts
 import { Response } from "express";
 import { AuthedRequest } from "../middleware/auth";
-import { uploadBufferToS3 } from "../config/s3";
+import {
+  uploadBufferToS3,
+  getPresignedUploadUrl,
+  getPublicS3UrlForKey,
+} from "../config/s3";
 
 export async function uploadBase64Image(req: AuthedRequest, res: Response) {
   try {
@@ -38,5 +42,45 @@ export async function uploadBase64Image(req: AuthedRequest, res: Response) {
   } catch (err) {
     console.error("uploadBase64Image error:", err);
     return res.status(500).json({ error: "Failed to upload image" });
+  }
+}
+
+export async function getPresignedUploadUrlController(
+  req: AuthedRequest,
+  res: Response
+) {
+  try {
+    const userId = req.user?.uid;
+    if (!userId) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    const { mimeType } = req.body;
+
+    if (!mimeType || typeof mimeType !== "string") {
+      return res.status(400).json({ error: "mimeType is required" });
+    }
+
+    // Decide extension based on mime type
+    let extension = "jpeg";
+    if (mimeType === "image/png") extension = "png";
+    else if (mimeType === "image/webp") extension = "webp";
+
+    const key = `looks/${userId}/${Date.now()}-${Math.random()
+      .toString(36)
+      .slice(2)}.${extension}`;
+
+    const uploadUrl = await getPresignedUploadUrl({
+      key,
+      mimeType,
+      expiresInSeconds: 60,
+    });
+
+    const fileUrl = getPublicS3UrlForKey(key);
+
+    return res.status(201).json({ uploadUrl, fileUrl, key });
+  } catch (err) {
+    console.error("getPresignedUploadUrl error:", err);
+    return res.status(500).json({ error: "Failed to create upload URL" });
   }
 }

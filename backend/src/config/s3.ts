@@ -32,3 +32,31 @@ export async function uploadBufferToS3(params: {
 
   return res.Location; // public HTTPS URL
 }
+export function getPublicS3UrlForKey(key: string): string {
+  // standard virtual-hosted–style URL
+  return `https://${ENV.S3_BUCKET_NAME}.s3.${ENV.S3_REGION}.amazonaws.com/${key}`;
+}
+
+export async function getPresignedUploadUrl(params: {
+  key: string;
+  mimeType: string;
+  expiresInSeconds?: number;
+}): Promise<string> {
+  const { key, mimeType, expiresInSeconds = 60 } = params;
+
+  return await new Promise((resolve, reject) => {
+    s3.getSignedUrl(
+      "putObject",
+      {
+        Bucket: ENV.S3_BUCKET_NAME,
+        Key: key,
+        ContentType: mimeType,
+        Expires: expiresInSeconds,
+      },
+      (err, url) => {
+        if (err || !url) return reject(err || new Error("No URL from S3"));
+        resolve(url);
+      }
+    );
+  });
+}
