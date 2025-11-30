@@ -25,6 +25,7 @@ if (!admin.apps.length) {
 
       admin.initializeApp({
         credential: admin.credential.cert(serviceAccount),
+        storageBucket: "aistyling-app.appspot.com",   // ✅ CRITICAL FIX
       });
 
       initialized = true;

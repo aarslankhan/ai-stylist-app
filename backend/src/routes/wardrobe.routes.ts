@@ -1,19 +1,16 @@
-// src/routes/wardrobe.routes.ts
+// backend/src/routes/wardrobe.routes.ts
 import { Router } from "express";
-import { firebaseAuth } from "../middleware/auth";
 import {
-  getWardrobe,
+  getWardrobeLooks,
   createWardrobeLook,
   deleteWardrobeLook,
 } from "../controllers/wardrobe.controller";
+import { firebaseAuth } from "../middleware/auth";
 
 const router = Router();
 
-// All routes here require Firebase auth
-router.use(firebaseAuth);
-
-router.get("/", getWardrobe);
-router.post("/", createWardrobeLook);
-router.delete("/:id", deleteWardrobeLook);
+router.get("/", firebaseAuth, getWardrobeLooks);
+router.post("/", firebaseAuth, createWardrobeLook);
+router.delete("/:id", firebaseAuth, deleteWardrobeLook);
 
 export default router;

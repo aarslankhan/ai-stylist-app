@@ -7,27 +7,28 @@ import React, {
   ReactNode,
 } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { storage, auth } from "../services/firebase";
-import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { auth } from "../services/firebase"; // 👈 keep this path as in your project
 
 export type Look = {
-  id: string;
-  imageUri: string | null; // Firebase HTTPS URL or data URL for now
+  id: string;             // clientId (string)
+  imageUri: string | null;
   score: number | null;
   vibe: string | null;
   tags: string[];
   notes: string[];
-  createdAt: number; // timestamp
+  createdAt: number;
 };
 
 type LooksContextValue = {
   looks: Look[];
   addLook: (input: {
+    id?: string;
     imageUri: string | null;
     score: number | null;
     vibe: string | null;
     tags: string[];
     notes: string[];
+    createdAt?: number;
   }) => void;
   deleteLook: (id: string) => void;
   clearLooks: () => void;
@@ -35,161 +36,51 @@ type LooksContextValue = {
 
 const LooksContext = createContext<LooksContextValue | undefined>(undefined);
 
-const STORAGE_KEY = "@ai-stylist/looks-v1";
+// New, clean storage key
+const STORAGE_KEY = "@wardrobe_looks_v2";
+
+// Same as backend
 const API_BASE_URL = "http://localhost:4000/api";
 
 export function LooksProvider({ children }: { children: ReactNode }) {
   const [looks, setLooks] = useState<Look[]>([]);
-  const [hydrated, setHydrated] = useState(false);
 
-  // 1) Load looks from AsyncStorage on mount
+  // 1) Load from AsyncStorage once
   useEffect(() => {
-    const loadLooks = async () => {
+    (async () => {
       try {
         const stored = await AsyncStorage.getItem(STORAGE_KEY);
         if (stored) {
-          const parsed = JSON.parse(stored) as Look[];
-          if (Array.isArray(parsed)) {
-            setLooks(parsed);
-          }
+          const parsed: Look[] = JSON.parse(stored);
+          setLooks(parsed);
+          console.log(
+            "LooksContext: hydrated",
+            parsed.length,
+            "looks from storage"
+          );
+        } else {
+          console.log("LooksContext: no stored looks found");
         }
       } catch (err) {
-        console.log("Failed to load looks from storage:", err);
-      } finally {
-        setHydrated(true);
+        console.log("LooksContext: failed to load from AsyncStorage", err);
       }
-    };
-
-    loadLooks();
+    })();
   }, []);
 
-  // 2) Save looks to AsyncStorage whenever they change (after hydrate)
+  // 2) Save to AsyncStorage every time looks changes
   useEffect(() => {
-    if (!hydrated) return;
-
-    const saveLooks = async () => {
+    (async () => {
       try {
         await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(looks));
       } catch (err) {
-        console.log("Failed to save looks to storage:", err);
+        console.log("LooksContext: failed to save to AsyncStorage", err);
       }
-    };
-
-    saveLooks();
-  }, [looks, hydrated]);
-
-  // 3) After local hydrate, pull latest wardrobe from backend (cloud truth)
-  useEffect(() => {
-    if (!hydrated) return;
-
-    const fetchFromBackend = async () => {
-      try {
-        const user = auth.currentUser;
-        if (!user) {
-          // not logged in → keep whatever local looks exist
-          return;
-        }
-
-        const token = await user.getIdToken();
-
-        const res = await fetch(`${API_BASE_URL}/wardrobe`, {
-          method: "GET",
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
-
-        if (!res.ok) {
-          const text = await res.text();
-          console.log(
-            "Failed to fetch wardrobe from backend:",
-            res.status,
-            text
-          );
-          return;
-        }
-
-        const data = await res.json();
-
-        if (!data || !Array.isArray(data.looks)) {
-          console.log("Backend wardrobe response not in expected format.");
-          return;
-        }
-
-        const remoteLooks: Look[] = data.looks.map((remote: any): Look => {
-          const id = (remote._id || remote.id || Math.random().toString(36).slice(2)) as string;
-          const created =
-            remote.createdAt != null
-              ? new Date(remote.createdAt).getTime()
-              : Date.now();
-
-          return {
-            id,
-            imageUri:
-              typeof remote.imageUrl === "string" ? remote.imageUrl : null,
-            score:
-              typeof remote.score === "number" ? remote.score : remote.score ?? null,
-            vibe:
-              typeof remote.vibe === "string" ? remote.vibe : remote.vibe ?? null,
-            tags: Array.isArray(remote.tags) ? remote.tags : [],
-            notes: Array.isArray(remote.notes) ? remote.notes : [],
-            createdAt: created,
-          };
-        });
-
-        setLooks(remoteLooks);
-      } catch (err) {
-        console.log("Error fetching wardrobe from backend:", err);
-      }
-    };
-
-    fetchFromBackend();
-  }, [hydrated]);
-
-  // Helper: robust upload using XMLHttpRequest (works better with file:/content:/blob:)
-  const uploadImageToFirebase = async (
-    uri: string,
-    ownerId: string
-  ): Promise<string> => {
-    const blob: Blob = await new Promise((resolve, reject) => {
-      const xhr = new XMLHttpRequest();
-      xhr.onload = function () {
-        resolve(xhr.response as Blob);
-      };
-      xhr.onerror = function () {
-        reject(new TypeError("Network request failed"));
-      };
-      xhr.responseType = "blob";
-      xhr.open("GET", uri, true);
-      xhr.send(null);
-    });
-
-    try {
-      const filename = `${ownerId}-${Date.now()}.jpg`;
-      const storageRef = ref(storage, `looks/${ownerId}/${filename}`);
-
-      await uploadBytes(storageRef, blob);
-      const downloadUrl = await getDownloadURL(storageRef);
-
-      // @ts-ignore - blob may not have close in all environments
-      if (typeof (blob as any).close === "function") {
-        (blob as any).close();
-      }
-
-      return downloadUrl;
-    } catch (err) {
-      // Clean up blob if possible
-      // @ts-ignore
-      if (typeof (blob as any).close === "function") {
-        (blob as any).close();
-      }
-      throw err;
-    }
-  };
+    })();
+  }, [looks]);
 
   const addLook: LooksContextValue["addLook"] = (input) => {
-    const id = Math.random().toString(36).slice(2);
-    const createdAt = Date.now();
+    const id = input.id ?? Math.random().toString(36).slice(2);
+    const createdAt = input.createdAt ?? Date.now();
 
     const newLook: Look = {
       id,
@@ -201,37 +92,47 @@ export function LooksProvider({ children }: { children: ReactNode }) {
       notes: input.notes ?? [],
     };
 
-    // Add immediately so UI updates fast
     setLooks((prev) => [newLook, ...prev]);
-
-    // If we have an imageUri AND it's NOT already an HTTP(S) URL,
-    // treat it as a local path that needs uploading.
-    if (input.imageUri && !/^https?:\/\//i.test(input.imageUri)) {
-      const currentUserId = auth.currentUser?.uid ?? "anonymous";
-
-      (async () => {
-        try {
-          const remoteUrl = await uploadImageToFirebase(
-            input.imageUri as string,
-            currentUserId
-          );
-
-          // Replace this look's imageUri with the permanent Firebase URL
-          setLooks((prev) =>
-            prev.map((look) =>
-              look.id === id ? { ...look, imageUri: remoteUrl } : look
-            )
-          );
-        } catch (err) {
-          console.log("Failed to upload look image:", err);
-          // If upload fails, look still exists but might lose the image on restart.
-        }
-      })();
-    }
   };
 
   const deleteLook: LooksContextValue["deleteLook"] = (id) => {
+    // Local delete
     setLooks((prev) => prev.filter((look) => look.id !== id));
+
+    // Backend delete (Mongo + S3) – by clientId
+    (async () => {
+      try {
+        const user = auth.currentUser;
+        if (!user) {
+          console.log(
+            "LooksContext.deleteLook: no current user, skipping backend delete"
+          );
+          return;
+        }
+
+        const token = await user.getIdToken();
+
+        const res = await fetch(`${API_BASE_URL}/wardrobe/${id}`, {
+          method: "DELETE",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        if (!res.ok && res.status !== 404) {
+          const text = await res.text();
+          console.log(
+            "LooksContext.deleteLook: backend delete failed",
+            res.status,
+            text
+          );
+        } else {
+          console.log("LooksContext.deleteLook: backend delete ok for", id);
+        }
+      } catch (err) {
+        console.log("LooksContext.deleteLook: error calling backend", err);
+      }
+    })();
   };
 
   const clearLooks = () => {
@@ -252,4 +153,3 @@ export function useLooks() {
   }
   return ctx;
 }
- 

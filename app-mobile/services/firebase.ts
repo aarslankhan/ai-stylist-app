@@ -6,7 +6,7 @@ const firebaseConfig = {
   apiKey: "AIzaSyDYvsm2w7YIvVxAyM7I63VnZW9how21RAE",
   authDomain: "aistyling-app.firebaseapp.com",
   projectId: "aistyling-app",
-  storageBucket: "aistyling-app.firebasestorage.app",
+  storageBucket: "aistyling-app.appspot.com",
   messagingSenderId: "322708751510",
   appId: "1:322708751510:web:5bcb02f46367141badeeb7",
   measurementId: "G-FG6JSJ7F56",

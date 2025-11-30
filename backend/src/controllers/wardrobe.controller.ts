@@ -1,59 +1,52 @@
-// src/controllers/wardrobe.controller.ts
-import { Response } from "express";
-import { AuthedRequest } from "../middleware/auth";
+// backend/src/controllers/wardrobe.controller.ts
+import { Request, Response } from "express";
 import { createLook, listLooks, deleteLookById } from "../services/wardrobe.service";
 
-export async function getWardrobe(req: AuthedRequest, res: Response) {
+export async function getWardrobeLooks(req: any, res: Response) {
   try {
-    const userId = req.user?.uid;
-    if (!userId) return res.status(401).json({ error: "Unauthorized" });
-
+    const userId = req.user.uid;
     const looks = await listLooks(userId);
-    res.json({ looks });
+    return res.status(200).json({ looks });
   } catch (err) {
-    console.error("getWardrobe error:", err);
-    res.status(500).json({ error: "Failed to load wardrobe" });
+    console.error("getWardrobeLooks error:", err);
+    return res.status(500).json({ message: "Failed to load wardrobe" });
   }
 }
 
-export async function createWardrobeLook(req: AuthedRequest, res: Response) {
+export async function createWardrobeLook(req: any, res: Response) {
   try {
-    const userId = req.user?.uid;
-    if (!userId) return res.status(401).json({ error: "Unauthorized" });
+    const userId = req.user.uid;
+    const { clientId, imageUrl, score, vibe, tags, notes } = req.body;
 
-    const { imageUrl, score, vibe, tags, notes } = req.body;
-
-    if (!imageUrl) {
-      return res.status(400).json({ error: "imageUrl is required" });
+    if (!clientId) {
+      return res.status(400).json({ message: "clientId is required" });
     }
 
     const look = await createLook({
       userId,
+      clientId,
       imageUrl,
       score: score ?? null,
       vibe: vibe ?? null,
-      tags: Array.isArray(tags) ? tags : [],
-      notes: Array.isArray(notes) ? notes : [],
+      tags: tags ?? [],
+      notes: notes ?? [],
     });
 
-    res.status(201).json({ look });
+    return res.status(201).json({ look });
   } catch (err) {
     console.error("createWardrobeLook error:", err);
-    res.status(500).json({ error: "Failed to create look" });
+    return res.status(500).json({ message: "Failed to create look" });
   }
 }
 
-export async function deleteWardrobeLook(req: AuthedRequest, res: Response) {
+export async function deleteWardrobeLook(req: any, res: Response) {
   try {
-    const userId = req.user?.uid;
-    if (!userId) return res.status(401).json({ error: "Unauthorized" });
-
-    const { id } = req.params;
-
+    const userId = req.user.uid;
+    const { id } = req.params; // id = clientId
     await deleteLookById(userId, id);
-    res.status(204).send();
+    return res.status(204).end();
   } catch (err) {
     console.error("deleteWardrobeLook error:", err);
-    res.status(500).json({ error: "Failed to delete look" });
+    return res.status(500).json({ message: "Failed to delete look" });
   }
 }

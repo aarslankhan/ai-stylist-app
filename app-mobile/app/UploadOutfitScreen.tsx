@@ -29,6 +29,7 @@ export default function UploadOutfitScreen() {
 
   const [aiResult, setAiResult] = useState<AiResult | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [imageUri, setImageUri] = useState<string | null>(null);
   const [imageBase64, setImageBase64] = useState<string | null>(null);
   const [imageAspectRatio, setImageAspectRatio] = useState<number | null>(null);
@@ -37,113 +38,124 @@ export default function UploadOutfitScreen() {
     "https://images.unsplash.com/photo-1516646255117-d56e0c644dcd?auto=format&fit=crop&w=900&q=80";
 
   // --- backend sync helper (does NOT change UI even if it fails) ---
-const syncLookToBackend = async (localImageDataUrl: string, ai: AiResult) => {
-  try {
-    const currentUser = auth.currentUser;
-    if (!currentUser) {
-      console.log("No Firebase user, skipping backend sync.");
-      return;
-    }
-
-    const token = await currentUser.getIdToken();
-
-    // 1) Upload image to S3 via backend
-    const uploadRes = await fetch(`${API_BASE_URL}/upload-image`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({
-        imageBase64: localImageDataUrl, // can be data URL or pure base64
-      }),
-    });
-
-    if (!uploadRes.ok) {
-      const text = await uploadRes.text();
-      console.log("Failed to upload image to backend/S3:", uploadRes.status, text);
-      return;
-    }
-
-    const uploadJson = await uploadRes.json();
-    const s3Url: string | undefined = uploadJson.url;
-
-    if (!s3Url) {
-      console.log("Upload endpoint did not return a URL.");
-      return;
-    }
-
-    // 2) Create wardrobe entry with S3 URL
-    const wardrobeRes = await fetch(`${API_BASE_URL}/wardrobe`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({
-        imageUrl: s3Url,
-        score: ai.score,
-        vibe: ai.vibe,
-        tags: ai.tags,
-        notes: ai.notes,
-      }),
-    });
-
-    if (!wardrobeRes.ok) {
-      const text = await wardrobeRes.text();
-      console.log("Failed to sync look to backend:", wardrobeRes.status, text);
-    } else {
-      console.log("Look synced to backend with S3 URL");
-    }
-  } catch (err) {
-    console.log("Error syncing look to backend:", err);
-  }
-};
-
-
-  const handlePickImage = async () => {
+  const syncLookToBackend = async (
+    clientId: string,
+    localImageDataUrl: string,
+    ai: AiResult
+  ): Promise<string | null> => {
     try {
-      const permissionResult =
-        await ImagePicker.requestMediaLibraryPermissionsAsync();
-
-      if (!permissionResult.granted) {
-        Alert.alert(
-          "Permission needed",
-          "Please allow access to your photos to pick an outfit image."
-        );
-        return;
+      const currentUser = auth.currentUser;
+      if (!currentUser) {
+        console.log("No Firebase user, skipping backend sync.");
+        return null;
       }
 
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: true,
-        quality: 0.8,
-        base64: true,
+      const token = await currentUser.getIdToken();
+
+      // 1) Upload image to S3 via backend
+      const uploadRes = await fetch(`${API_BASE_URL}/upload-image`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          imageBase64: localImageDataUrl,
+        }),
       });
 
-      if (result.canceled) return;
-
-      const asset = result.assets && result.assets[0];
-      if (asset?.uri) {
-        setImageUri(asset.uri);
-        setImageBase64(asset.base64 ?? null);
-        setAiResult(null);
-
-        Image.getSize(
-          asset.uri,
-          (w, h) => {
-            if (w && h) {
-              setImageAspectRatio(w / h);
-            }
-          },
-          () => {
-            setImageAspectRatio(null);
-          }
+      if (!uploadRes.ok) {
+        const text = await uploadRes.text();
+        console.log(
+          "Failed to upload image to backend/S3:",
+          uploadRes.status,
+          text
         );
+        return null;
       }
+
+      const uploadJson = await uploadRes.json();
+      const s3Url: string | undefined = uploadJson.url; // 👈 your backend returns { url }
+
+      if (!s3Url) {
+        console.log("Upload endpoint did not return a URL.");
+        return null;
+      }
+
+      // 2) Create wardrobe entry with S3 URL + clientId
+      const wardrobeRes = await fetch(`${API_BASE_URL}/wardrobe`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          clientId,
+          imageUrl: s3Url,
+          score: ai.score,
+          vibe: ai.vibe,
+          tags: ai.tags,
+          notes: ai.notes,
+        }),
+      });
+
+      if (!wardrobeRes.ok) {
+        const text = await wardrobeRes.text();
+        console.log(
+          "Failed to sync look to backend:",
+          wardrobeRes.status,
+          text
+        );
+        return null;
+      }
+
+      console.log("Look synced to backend with S3 URL", s3Url);
+      return s3Url;
     } catch (err) {
-      console.log("Error picking image:", err);
-      Alert.alert("Error", "Could not open your photo library.");
+      console.log("Error syncing look to backend:", err);
+      return null;
+    }
+  };
+
+  // pick image from gallery (with base64 + aspect ratio)
+  const handlePickImage = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== "granted") {
+      Alert.alert(
+        "Permission required",
+        "We need access to your photos to pick an outfit."
+      );
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      quality: 0.9,
+      base64: true,
+    });
+
+    if (result.canceled) return;
+
+    const asset = result.assets && result.assets[0];
+
+    if (asset?.uri) {
+      setImageUri(asset.uri);
+      setImageBase64(asset.base64 ?? null);
+      setAiResult(null);
+      setImageAspectRatio(null);
+
+      Image.getSize(
+        asset.uri,
+        (w, h) => {
+          if (w && h) {
+            setImageAspectRatio(w / h);
+          }
+        },
+        () => {
+          setImageAspectRatio(null);
+        }
+      );
     }
   };
 
@@ -172,34 +184,52 @@ const syncLookToBackend = async (localImageDataUrl: string, ai: AiResult) => {
     setImageAspectRatio(null);
   };
 
-  const handleSaveToWardrobe = () => {
+  const handleSaveToWardrobe = async () => {
     if (!aiResult) {
       Alert.alert("No rating yet", "Analyze your outfit first.");
       return;
     }
 
-    // local persistent URI (base64 data URL fallback)
     const persistentUri =
       imageBase64 != null
         ? `data:image/jpeg;base64,${imageBase64}`
         : imageUri;
 
+    if (!persistentUri) {
+      Alert.alert("No image", "Pick an image first.");
+      return;
+    }
+
+    const clientId = Math.random().toString(36).slice(2);
+
     try {
-      // 1) local add (LooksContext + AsyncStorage) – what you already had
-      addLook({
-        imageUri: persistentUri ?? null,
+      setIsSaving(true);
+
+      // 🔥 1) First, sync to backend and get the final S3 URL
+      const s3Url = await syncLookToBackend(clientId, persistentUri, aiResult);
+
+      if (!s3Url) {
+        Alert.alert(
+          "Upload failed",
+          "Could not upload outfit to wardrobe. Please try again."
+        );
+        return;
+      }
+
+      // ✅ 2) Now add to local wardrobe using the S3 URL
+      //    We pass BOTH imageUri and imageUrl so it works
+      //    regardless of how Look is shaped in your context/wardrobe.
+      (addLook as any)({
+        id: clientId,
+        imageUri: s3Url,
+        imageUrl: s3Url,
         score: aiResult.score,
         vibe: aiResult.vibe,
         tags: aiResult.tags,
         notes: aiResult.notes,
       });
 
-      // 2) backend sync (fire and forget, no UI blocking)
-      if (persistentUri) {
-        void syncLookToBackend(persistentUri, aiResult);
-      }
-
-      // 3) navigate like before
+      // 3) Navigate
       navigation.navigate("Home");
     } catch (err) {
       console.log("Failed to save outfit to wardrobe:", err);
@@ -207,6 +237,8 @@ const syncLookToBackend = async (localImageDataUrl: string, ai: AiResult) => {
         "Error",
         "Could not save this outfit. Please try again in a moment."
       );
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -361,11 +393,16 @@ const syncLookToBackend = async (localImageDataUrl: string, ai: AiResult) => {
                       </Text>
                     </TouchableOpacity>
                     <TouchableOpacity
-                      style={[styles.outlineButton, styles.buttonMargin]}
+                      style={[
+                        styles.outlineButton,
+                        styles.buttonMargin,
+                        isSaving && { opacity: 0.7 },
+                      ]}
                       onPress={handleSaveToWardrobe}
+                      disabled={isSaving}
                     >
                       <Text style={styles.outlineButtonText}>
-                        Save to wardrobe
+                        {isSaving ? "Saving..." : "Save to wardrobe"}
                       </Text>
                     </TouchableOpacity>
                   </View>
