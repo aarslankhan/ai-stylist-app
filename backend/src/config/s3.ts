@@ -10,6 +10,7 @@ AWS.config.update({
   accessKeyId: ENV.S3_ACCESS_KEY_ID,
   secretAccessKey: ENV.S3_SECRET_ACCESS_KEY,
   region: ENV.S3_REGION,
+  signatureVersion: "v4",
 });
 
 export const s3 = new AWS.S3();

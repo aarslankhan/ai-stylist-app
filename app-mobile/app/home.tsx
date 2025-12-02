@@ -1,14 +1,13 @@
-// app-mobile/app/HomeScreen.tsx
-
+// app-mobile/app/home.tsx
 import { useLooks } from "../context/LooksContext";
-import React from "react";
+import React, { useState } from "react";
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Image
+  Image,
 } from "react-native";
 import { useWindowDimensions } from "react-native";
 import { useAuth } from "../context/AuthContext";
@@ -16,19 +15,47 @@ import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import type { RootStackParamList } from "../App";
 
+const getFirstNameFromUser = (user: any): string => {
+  // 1) Prefer displayName if set
+  if (user?.displayName && typeof user.displayName === "string") {
+    const trimmed = user.displayName.trim();
+    if (trimmed.length > 0) {
+      const [first] = trimmed.split(" ");
+      if (first) {
+        return first.charAt(0).toUpperCase() + first.slice(1);
+      }
+    }
+  }
+
+  // 2) Fallback: derive from email
+  const email: string | undefined = user?.email;
+  if (email && email.includes("@")) {
+    const local = email.split("@")[0] ?? "";
+    const cleaned = local.replace(/[._-]+/g, " ").trim();
+    if (cleaned.length > 0) {
+      const [first] = cleaned.split(" ");
+      if (first) {
+        return first.charAt(0).toUpperCase() + first.slice(1);
+      }
+    }
+  }
+
+  // 3) Final fallback
+  return "Stylist";
+};
+
 export default function HomeScreen() {
   const { user, signOutUser } = useAuth();
   const { width } = useWindowDimensions();
   const isLargeScreen = width >= 900;
   const isSmallScreen = width <= 600;
-  const { looks } = useLooks(); // 👈 NEW
+  const { looks } = useLooks();
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
 
   const navigation =
     useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
-  const usernameRaw = user?.email?.split("@")[0] ?? "stylist";
-  const firstName =
-    usernameRaw.charAt(0).toUpperCase() + usernameRaw.slice(1);
+  const firstName = getFirstNameFromUser(user);
 
   return (
     <View style={styles.page}>
@@ -37,12 +64,7 @@ export default function HomeScreen() {
 
       {/* TOP BAR */}
       <View style={styles.topBar}>
-        <View
-          style={[
-            styles.topBarInner,
-            isSmallScreen && styles.topBarInnerSmall,
-          ]}
-        >
+        <View style={styles.topBarInner}>
           <View style={styles.logoRow}>
             <View style={styles.logoMark}>
               <Text style={styles.logoMarkText}>AI</Text>
@@ -54,29 +76,65 @@ export default function HomeScreen() {
           </View>
 
           <View
-            style={[
-              styles.topRight,
-              isSmallScreen && styles.topRightSmall,
-            ]}
+            style={[styles.topRight, isSmallScreen && styles.topRightSmall]}
           >
-            <View style={styles.userChip}>
-              <Text style={styles.userInitial}>
-                {user?.email?.[0]?.toUpperCase() ?? "U"}
-              </Text>
-              <View style={{ marginLeft: 8, flexShrink: 1 }}>
-                <Text style={styles.userName} numberOfLines={1}>
-                  {user?.email}
-                </Text>
-                <Text style={styles.userTag}>Early access</Text>
-              </View>
-            </View>
-
+            {/* Round avatar circle on the right */}
             <TouchableOpacity
-              style={styles.signOutButton}
-              onPress={signOutUser}
+              style={styles.avatarButton}
+              activeOpacity={0.8}
+              onPress={() => setUserMenuOpen((prev) => !prev)}
             >
-              <Text style={styles.signOutText}>Sign out</Text>
+              <Text style={styles.avatarInitial}>
+                {firstName?.[0] ?? "U"}
+              </Text>
             </TouchableOpacity>
+
+            {/* Dropdown menu */}
+            {userMenuOpen && (
+              <View style={styles.userMenu}>
+                <Text style={styles.userMenuHeader}>Signed in as</Text>
+                <Text style={styles.userMenuName}>{firstName}</Text>
+                {user?.email ? (
+                  <Text style={styles.userMenuEmail}>{user.email}</Text>
+                ) : null}
+
+                <TouchableOpacity
+                  style={styles.userMenuItem}
+                  onPress={() => {
+                    setUserMenuOpen(false);
+                    navigation.navigate("Profile"); // My information + password live there
+                  }}
+                >
+                  <Text style={styles.userMenuItemText}>My information</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.userMenuItem}
+                  onPress={() => {
+                    setUserMenuOpen(false);
+                    navigation.navigate("Profile"); // Goes to same Profile screen (password section)
+                  }}
+                >
+                  <Text style={styles.userMenuItemText}>Change password</Text>
+                </TouchableOpacity>
+
+                <View style={styles.userMenuDivider} />
+
+                <TouchableOpacity
+                  style={styles.userMenuItem}
+                  onPress={() => {
+                    setUserMenuOpen(false);
+                    signOutUser();
+                  }}
+                >
+                  <Text
+                    style={[styles.userMenuItemText, styles.userMenuSignOut]}
+                  >
+                    Sign out
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            )}
           </View>
         </View>
       </View>
@@ -158,9 +216,7 @@ export default function HomeScreen() {
               <View style={styles.heroArtCard}>
                 <View style={styles.heroArtOutline}>
                   <Image
-                    source={
-                      require("../assets/hero.png")
-                    }
+                    source={require("../assets/hero.png")}
                     style={styles.heroImage}
                     resizeMode="cover"
                   />
@@ -283,13 +339,14 @@ export default function HomeScreen() {
                 with AI scores.
               </Text>
               <TouchableOpacity
-                style={{ marginTop: 6, alignSelf: "flex-start" }}
+                style={styles.wardrobeButton}
                 onPress={() => navigation.navigate("Wardrobe")}
               >
-                <Text style={{ fontSize: 12, color: "#A5B4FC" }}>
-                  View full wardrobe →
+                <Text style={styles.wardrobeButtonText}>
+                  👗 View full wardrobe
                 </Text>
               </TouchableOpacity>
+
               <View style={styles.looksRow}>
                 {looks.length === 0 ? (
                   // fallback placeholders
@@ -328,8 +385,6 @@ export default function HomeScreen() {
                   ))
                 )}
               </View>
-
-
             </View>
           </View>
         </View>
@@ -369,11 +424,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
   },
-  topBarInnerSmall: {
-    flexDirection: "column",
-    alignItems: "flex-start",
-    gap: 8,
-  },
   logoRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -405,53 +455,81 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
+    position: "relative",
   },
   topRightSmall: {
     alignSelf: "stretch",
-    justifyContent: "space-between",
+    justifyContent: "flex-end",
   },
-  userChip: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-    borderRadius: 999,
-    backgroundColor: "rgba(15,23,42,0.9)",
-    borderWidth: 1,
-    borderColor: "#1F2937",
-    maxWidth: 220,
-    flexShrink: 1,
-  },
-  userInitial: {
-    width: 26,
-    height: 26,
+
+  // avatar + dropdown
+  avatarButton: {
+    width: 32,
+    height: 32,
     borderRadius: 999,
     backgroundColor: "#A855F7",
-    textAlign: "center",
-    textAlignVertical: "center",
-    color: "#F9FAFB",
-    fontWeight: "700",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "#4B5563",
   },
-  userName: {
+  avatarInitial: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#F9FAFB",
+  },
+  userMenu: {
+    position: "absolute",
+    top: 40,
+    right: 0,
+    minWidth: 190,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    borderRadius: 16,
+    backgroundColor: "#020617",
+    borderWidth: 1,
+    borderColor: "#1F2937",
+    shadowColor: "#000",
+    shadowOpacity: 0.3,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 10 },
+    elevation: 8,
+    gap: 4,
+    zIndex: 50,
+  },
+  userMenuHeader: {
+    fontSize: 11,
+    color: "#6B7280",
+    marginBottom: 2,
+  },
+  userMenuName: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#E5E7EB",
+  },
+  userMenuEmail: {
+    fontSize: 11,
+    color: "#9CA3AF",
+    marginBottom: 6,
+  },
+  userMenuItem: {
+    paddingVertical: 6,
+  },
+  userMenuItemText: {
     fontSize: 12,
     color: "#E5E7EB",
   },
-  userTag: {
-    fontSize: 10,
-    color: "#9CA3AF",
+  userMenuDivider: {
+    height: 1,
+    backgroundColor: "#111827",
+    marginVertical: 4,
   },
-  signOutButton: {
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: "#4B5563",
-    backgroundColor: "rgba(15,23,42,0.9)",
+  userMenuSignOut: {
+    color: "#F97373",
+    fontWeight: "600",
   },
-  signOutText: {
-    fontSize: 12,
-    color: "#9CA3AF",
-  },
+
+  // rest unchanged
   scrollContent: {
     paddingHorizontal: 16,
     paddingVertical: 16,
@@ -573,20 +651,6 @@ const styles = StyleSheet.create({
     padding: 16,
     minHeight: 180,
     justifyContent: "center",
-  },
-  heroArtLabel: {
-    fontSize: 12,
-    color: "#9CA3AF",
-    marginBottom: 4,
-  },
-  heroArtText: {
-    fontSize: 13,
-    color: "#E5E7EB",
-    marginBottom: 6,
-  },
-  heroArtHint: {
-    fontSize: 11,
-    color: "#9CA3AF",
   },
   heroTagCardLeft: {
     position: "absolute",
@@ -800,5 +864,19 @@ const styles = StyleSheet.create({
     height: "100%",
     borderRadius: 16,
   },
-  
+  wardrobeButton: {
+    marginTop: 8,
+    alignSelf: "flex-start",
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: "#4B5563",
+    backgroundColor: "#020617",
+  },
+  wardrobeButtonText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#E5E7EB",
+  },
 });
