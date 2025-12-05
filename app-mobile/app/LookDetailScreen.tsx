@@ -8,60 +8,40 @@ import {
   TouchableOpacity,
   Image,
   Alert,
-  Platform,
 } from "react-native";
-import { useNavigation, useRoute } from "@react-navigation/native";
-import { useLooks } from "../context/LooksContext";
+import {
+  useNavigation,
+  useRoute,
+  RouteProp,
+} from "@react-navigation/native";
 
-export default function LookDetailScreen() {
+import { useLooks, type Look } from "../context/LooksContext";
+import type { RootStackParamList } from "../App";
+
+type LookDetailRoute = RouteProp<RootStackParamList, "LookDetail">;
+
+const FALLBACK_IMAGE =
+  "https://images.unsplash.com/photo-1516646255117-d56e0c644dcd?auto=format&fit=crop&w=900&q=80";
+
+const LookDetailScreen: React.FC = () => {
   const navigation = useNavigation<any>();
-  const route = useRoute<any>();
-
+  const route = useRoute<LookDetailRoute>();
   const { looks, deleteLook } = useLooks();
-  const lookId: string | undefined = route.params?.id;
 
-  const look = looks.find((l) => l.id === lookId) || null;
-
-  const handleBack = () => {
-    navigation.goBack();
-  };
-
-  const handleDelete = () => {
-    if (!lookId) return;
-
-    if (Platform.OS === "web") {
-      const ok = window.confirm("Delete this look? This action cannot be undone.");
-      if (!ok) return;
-      deleteLook(lookId);
-      navigation.goBack();
-      return;
-    }
-
-    Alert.alert(
-      "Delete this look?",
-      "This action cannot be undone.",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Delete",
-          style: "destructive",
-          onPress: () => {
-            deleteLook(lookId);
-            navigation.goBack();
-          },
-        },
-      ]
-    );
-  };
+  const { id } = route.params;
+  const look = looks.find((l) => l.id === id) as Look | undefined;
 
   if (!look) {
     return (
       <View style={styles.page}>
-        <View style={styles.bgBlobPurple} />
-        <View style={styles.bgBlobPink} />
         <View style={styles.centered}>
-          <Text style={styles.mutedText}>This look could not be found.</Text>
-          <TouchableOpacity style={styles.primaryButton} onPress={handleBack}>
+          <Text style={styles.mutedText}>
+            This look could not be found in your wardrobe.
+          </Text>
+          <TouchableOpacity
+            style={styles.primaryButton}
+            onPress={() => navigation.navigate("Wardrobe")}
+          >
             <Text style={styles.primaryButtonText}>Back to wardrobe</Text>
           </TouchableOpacity>
         </View>
@@ -69,11 +49,59 @@ export default function LookDetailScreen() {
     );
   }
 
-  const createdDate = new Date(look.createdAt);
-  const createdLabel = createdDate.toLocaleString();
+  const createdAt =
+    typeof look.createdAt === "number"
+      ? new Date(look.createdAt)
+      : new Date();
+  const createdLabel = `${createdAt.toLocaleDateString()} · ${createdAt.toLocaleTimeString(
+    [],
+    { hour: "2-digit", minute: "2-digit" }
+  )}`;
 
-  const FALLBACK_IMAGE =
-    "https://images.unsplash.com/photo-1516646255117-d56e0c644dcd?auto=format&fit=crop&w=900&q=80";
+  // ───────────── Derive analysis + suggestions ─────────────
+  const anyLook: any = look;
+
+  let analysisLines: string[] = [];
+  let suggestionLines: string[] = [];
+
+  if (
+    Array.isArray(anyLook.analysis) &&
+    (anyLook.analysis as string[]).length > 0
+  ) {
+    // New shape: explicit analysis + suggestions
+    analysisLines = anyLook.analysis;
+    suggestionLines = Array.isArray(anyLook.suggestions)
+      ? anyLook.suggestions
+      : [];
+  } else if (Array.isArray(look.notes) && look.notes.length > 0) {
+    // Legacy shape: only "notes" → split into analysis + suggestions
+    const notes = look.notes;
+    const splitIndex = Math.ceil(notes.length / 2); // first half = analysis, second half = suggestions
+    analysisLines = notes.slice(0, splitIndex);
+    suggestionLines = notes.slice(splitIndex);
+  }
+
+  const handleDelete = () => {
+    Alert.alert(
+      "Delete this look?",
+      "This will remove the look and its AI notes from your wardrobe.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: () => {
+            deleteLook(look.id);
+            navigation.navigate("Wardrobe");
+          },
+        },
+      ]
+    );
+  };
+
+  const handleOpenShareCard = () => {
+    navigation.navigate("ShareCard", { id: look.id });
+  };
 
   return (
     <View style={styles.page}>
@@ -81,108 +109,146 @@ export default function LookDetailScreen() {
       <View style={styles.bgBlobPurple} />
       <View style={styles.bgBlobPink} />
 
-      {/* Top bar */}
+      {/* top bar */}
       <View style={styles.topBar}>
-        <View style={styles.topLeft}>
-          <TouchableOpacity onPress={handleBack}>
-            <Text style={styles.backText}>← Wardrobe</Text>
-          </TouchableOpacity>
-          <Text style={styles.title}>Look details</Text>
-        </View>
-        <View style={styles.topRight}>
-          <Text style={styles.dateText}>{createdLabel}</Text>
-        </View>
+        <TouchableOpacity onPress={() => navigation.navigate("Wardrobe")}>
+          <Text style={styles.backText}>← Wardrobe</Text>
+        </TouchableOpacity>
+        <Text style={styles.title}>Look details</Text>
+        <View style={{ width: 40 }} />
       </View>
 
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.detailInner}>
-          {/* Image */}
-          <View style={styles.imageCard}>
-            <Image
-              source={{ uri: look.imageUri ?? FALLBACK_IMAGE }}
-              style={styles.image}
-              resizeMode="contain"
-            />
-          </View>
-
-          {/* Score + vibe */}
-          <View style={styles.section}>
-            <View style={styles.scoreRow}>
-              <View style={styles.scoreCircle}>
-                <Text style={styles.scoreValue}>
-                  {look.score != null ? look.score.toFixed(1) : "—"}
-                </Text>
-                <Text style={styles.scoreLabel}>/10</Text>
-              </View>
-              <View style={styles.scoreTextCol}>
-                <Text style={styles.scoreTitle}>{look.vibe ?? "Saved look"}</Text>
-                <Text style={styles.scoreSubtitle}>
-                  AI breakdown for this outfit.
-                </Text>
-              </View>
-            </View>
-          </View>
-
-          {/* Notes */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>AI notes</Text>
-            {look.notes && look.notes.length > 0 ? (
-              look.notes.map((note, idx) => (
-                <View key={idx} style={styles.noteRow}>
-                  <Text style={styles.bullet}>•</Text>
-                  <Text style={styles.noteText}>{note}</Text>
-                </View>
-              ))
-            ) : (
-              <Text style={styles.mutedText}>
-                No detailed notes were saved for this look.
+        {/* hero image – full image, not cropped */}
+        <View style={styles.heroCard}>
+          <Image
+            source={{ uri: look.imageUri || FALLBACK_IMAGE }}
+            style={styles.heroImage}
+            resizeMode="contain"
+          />
+          {typeof look.score === "number" && (
+            <View style={styles.heroScorePill}>
+              <Text style={styles.heroScoreValue}>
+                {look.score.toFixed(1)}
               </Text>
-            )}
-          </View>
+              <Text style={styles.heroScoreSuffix}>/10</Text>
+            </View>
+          )}
+        </View>
 
-          {/* Tags */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Tags</Text>
-            {look.tags && look.tags.length > 0 ? (
-              <View style={styles.tagsRow}>
-                {look.tags.map((tag, idx) => (
-                  <View key={idx} style={styles.tagPill}>
-                    <Text style={styles.tagText}>{tag}</Text>
-                  </View>
-                ))}
-              </View>
-            ) : (
-              <Text style={styles.mutedText}>No tags added.</Text>
-            )}
-          </View>
-
-          {/* Actions */}
-          <View style={styles.section}>
-            <View style={styles.actionsRow}>
-              <TouchableOpacity
-                style={styles.secondaryButton}
-                onPress={handleBack}
-              >
-                <Text style={styles.secondaryButtonText}>Back to wardrobe</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.dangerButton}
-                onPress={handleDelete}
-              >
-                <Text style={styles.dangerButtonText}>Delete this look</Text>
-              </TouchableOpacity>
+        {/* Summary */}
+        <View style={styles.sectionCard}>
+          <Text style={styles.sectionTitle}>Summary</Text>
+          <View style={styles.summaryRow}>
+            <View style={styles.summaryBlock}>
+              <Text style={styles.summaryLabel}>Saved on</Text>
+              <Text style={styles.summaryValue}>{createdLabel}</Text>
             </View>
           </View>
 
-          <View style={{ height: 40 }} />
+          {!!look.vibe && (
+            <View style={[styles.summaryBlock, { marginTop: 10 }]}>
+              <Text style={styles.summaryLabel}>AI vibe</Text>
+              <Text style={styles.summaryValue}>{look.vibe}</Text>
+            </View>
+          )}
+        </View>
+
+        {/* AI rating */}
+        {typeof look.score === "number" && (
+          <View style={styles.sectionCard}>
+            <Text style={styles.sectionTitle}>AI rating</Text>
+            <View style={styles.ratingRow}>
+              <View style={styles.scorePill}>
+                <Text style={styles.scoreValue}>
+                  {look.score.toFixed(1)}
+                </Text>
+                <Text style={styles.scoreSuffix}>/10</Text>
+              </View>
+              <View style={styles.ratingText}>
+                <Text style={styles.ratingTitle}>
+                  {look.vibe || "AI style rating"}
+                </Text>
+                <Text style={styles.ratingSubtitle}>
+                  Style rating generated when you saved this look.
+                </Text>
+              </View>
+            </View>
+          </View>
+        )}
+
+        {/* Aura's Analysis */}
+        {analysisLines.length > 0 && (
+          <View style={styles.sectionCard}>
+            <Text style={styles.sectionTitle}>Aura’s Analysis</Text>
+            {analysisLines.map((note, idx) => (
+              <View key={`a-${idx}`} style={styles.noteRow}>
+                <Text style={styles.bullet}>•</Text>
+                <Text style={styles.noteText}>{note}</Text>
+              </View>
+            ))}
+          </View>
+        )}
+
+        {/* Aura's Suggestions */}
+        {suggestionLines.length > 0 && (
+          <View style={styles.sectionCard}>
+            <Text style={styles.sectionTitle}>Aura’s Suggestions</Text>
+            {suggestionLines.map((note, idx) => (
+              <View key={`s-${idx}`} style={styles.noteRow}>
+                <Text style={styles.bullet}>•</Text>
+                <Text style={styles.noteText}>{note}</Text>
+              </View>
+            ))}
+          </View>
+        )}
+
+        {/* Tags */}
+        {Array.isArray(look.tags) && look.tags.length > 0 && (
+          <View style={styles.sectionCard}>
+            <Text style={styles.sectionTitle}>Tags</Text>
+            <View style={styles.tagRow}>
+              {look.tags.map((tag, idx) => (
+                <View key={idx} style={styles.tagPill}>
+                  <Text style={styles.tagText}>{tag}</Text>
+                </View>
+              ))}
+            </View>
+          </View>
+        )}
+
+        {/* bottom button strip */}
+        <View style={styles.footerButtons}>
+          <TouchableOpacity
+            style={[styles.footerButton, styles.footerSecondary]}
+            onPress={() => navigation.navigate("Wardrobe")}
+          >
+            <Text style={styles.footerSecondaryText}>Back to wardrobe</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.footerButton, styles.footerPrimary]}
+            onPress={handleOpenShareCard}
+          >
+            <Text style={styles.footerPrimaryText}>Open share card</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.footerButton, styles.footerDanger]}
+            onPress={handleDelete}
+          >
+            <Text style={styles.footerDangerText}>Delete this look</Text>
+          </TouchableOpacity>
         </View>
       </ScrollView>
     </View>
   );
-}
+};
+
+export default LookDetailScreen;
 
 const styles = StyleSheet.create({
   page: {
@@ -210,165 +276,201 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   topBar: {
-    height: 56,
     paddingHorizontal: 24,
-    borderBottomWidth: 1,
-    borderBottomColor: "#0B1120",
+    paddingTop: 8,
+    paddingBottom: 10,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-  },
-  topLeft: {
-    flexDirection: "row",
-    alignItems: "center",
+    zIndex: 10,
   },
   backText: {
     fontSize: 13,
     color: "#9CA3AF",
-    marginRight: 8,
   },
   title: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: "600",
     color: "#F9FAFB",
   },
-  topRight: {},
-  dateText: {
-    fontSize: 11,
-    color: "#9CA3AF",
-  },
   scrollContent: {
     paddingHorizontal: 24,
-    paddingVertical: 20,
+    paddingBottom: 40,
   },
-  detailInner: {
+  heroCard: {
+    borderRadius: 24,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: "rgba(148,163,184,0.7)",
+    marginBottom: 18,
+    backgroundColor: "#020617",
+  },
+  heroImage: {
     width: "100%",
-    maxWidth: 520,
-    alignSelf: "center",
+    height: 320,
   },
-  imageCard: {
+  heroScorePill: {
+    position: "absolute",
+    right: 16,
+    bottom: 14,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 999,
+    backgroundColor: "rgba(34,197,94,0.9)",
+    flexDirection: "row",
+    alignItems: "flex-end",
+  },
+  heroScoreValue: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#ECFDF5",
+  },
+  heroScoreSuffix: {
+    fontSize: 11,
+    color: "#DCFAE6",
+    marginLeft: 4,
+  },
+  sectionCard: {
     borderRadius: 20,
     borderWidth: 1,
     borderColor: "rgba(148,163,184,0.7)",
-    backgroundColor: "rgba(15,23,42,0.96)",
-    padding: 14,
-    marginBottom: 18,
-    alignSelf: "center",
-    width: "100%",
-    maxWidth: 520,
-  },
-  image: {
-    width: "100%",
-    aspectRatio: 3 / 4,
-    maxHeight: 420,
-    borderRadius: 16,
-    backgroundColor: "#020617",
-  },
-  section: {
-    marginBottom: 18,
-    paddingHorizontal: 4,
+    backgroundColor: "rgba(15,23,42,0.98)",
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    marginBottom: 14,
   },
   sectionTitle: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: "600",
-    color: "#E5E7EB",
+    color: "#F9FAFB",
     marginBottom: 6,
   },
-  scoreRow: {
+  summaryRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+  },
+  summaryBlock: {
+    marginRight: 14,
+    marginTop: 2,
+  },
+  summaryLabel: {
+    fontSize: 12,
+    color: "#9CA3AF",
+  },
+  summaryValue: {
+    fontSize: 13,
+    color: "#E5E7EB",
+    fontWeight: "500",
+  },
+  ratingRow: {
     flexDirection: "row",
     alignItems: "center",
+    marginTop: 4,
   },
-  scoreCircle: {
-    width: 70,
-    height: 70,
+  scorePill: {
+    width: 64,
+    height: 64,
     borderRadius: 999,
     borderWidth: 2,
-    borderColor: "#22C55E",
+    borderColor: "#4ADE80",
     alignItems: "center",
     justifyContent: "center",
-    marginRight: 14,
+    marginRight: 12,
+    backgroundColor: "rgba(22,163,74,0.2)",
   },
   scoreValue: {
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: "800",
     color: "#BBF7D0",
   },
-  scoreLabel: {
-    fontSize: 11,
+  scoreSuffix: {
+    fontSize: 10,
     color: "#6EE7B7",
   },
-  scoreTextCol: {
+  ratingText: {
     flex: 1,
   },
-  scoreTitle: {
-    fontSize: 16,
+  ratingTitle: {
+    fontSize: 14,
     fontWeight: "600",
     color: "#F9FAFB",
     marginBottom: 2,
   },
-  scoreSubtitle: {
+  ratingSubtitle: {
     fontSize: 12,
     color: "#9CA3AF",
   },
   noteRow: {
     flexDirection: "row",
+    alignItems: "flex-start",
     marginBottom: 4,
   },
   bullet: {
-    color: "#9CA3AF",
+    fontSize: 12,
+    color: "#4F46E5",
     marginRight: 4,
     marginTop: 1,
   },
   noteText: {
+    flex: 1,
     fontSize: 12,
     color: "#E5E7EB",
-    flex: 1,
+    lineHeight: 17,
   },
-  tagsRow: {
+  tagRow: {
     flexDirection: "row",
     flexWrap: "wrap",
+    marginTop: 6,
   },
   tagPill: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
     borderRadius: 999,
-    backgroundColor: "rgba(55,65,81,0.9)",
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    backgroundColor: "rgba(79,70,229,0.18)",
     marginRight: 6,
-    marginBottom: 4,
+    marginBottom: 6,
   },
   tagText: {
     fontSize: 11,
-    color: "#E5E7EB",
+    color: "#C7D2FE",
   },
-  actionsRow: {
+  footerButtons: {
+    marginTop: 18,
     flexDirection: "row",
     flexWrap: "wrap",
-    justifyContent: "flex-start",
+    justifyContent: "flex-end",
   },
-  secondaryButton: {
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: "#4B5563",
-    paddingVertical: 9,
+  footerButton: {
     paddingHorizontal: 16,
-    marginRight: 8,
+    paddingVertical: 9,
+    borderRadius: 999,
+    marginLeft: 8,
     marginBottom: 8,
+  },
+  footerSecondary: {
+    borderWidth: 1,
+    borderColor: "rgba(148,163,184,0.7)",
     backgroundColor: "rgba(15,23,42,0.9)",
   },
-  secondaryButtonText: {
+  footerSecondaryText: {
     fontSize: 13,
     color: "#E5E7EB",
+    fontWeight: "500",
   },
-  dangerButton: {
-    borderRadius: 999,
-    paddingVertical: 9,
-    paddingHorizontal: 16,
-    marginBottom: 8,
-    backgroundColor: "rgba(239,68,68,0.15)",
+  footerPrimary: {
+    backgroundColor: "#4F46E5",
+  },
+  footerPrimaryText: {
+    fontSize: 13,
+    color: "#F9FAFB",
+    fontWeight: "600",
+  },
+  footerDanger: {
+    backgroundColor: "rgba(239,68,68,0.12)",
     borderWidth: 1,
     borderColor: "rgba(248,113,113,0.8)",
   },
-  dangerButtonText: {
+  footerDangerText: {
     fontSize: 13,
     color: "#FCA5A5",
     fontWeight: "600",
@@ -377,11 +479,11 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
+    paddingHorizontal: 24,
   },
   mutedText: {
     fontSize: 13,
     color: "#9CA3AF",
-    textAlign: "center",
     marginBottom: 12,
   },
   primaryButton: {

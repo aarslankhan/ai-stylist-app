@@ -14,6 +14,7 @@ import UploadOutfitScreen from "./app/UploadOutfitScreen";
 import WardrobeScreen from "./app/WardrobeScreen";
 import LookDetailScreen from "./app/LookDetailScreen";
 import ProfileScreen from "./app/ProfileScreen";
+import ShareCardScreen from "./app/ShareCardScreen";
 
 export type RootStackParamList = {
   Login: undefined;
@@ -21,6 +22,20 @@ export type RootStackParamList = {
   UploadOutfit: { prefillLook?: any } | undefined;
   Wardrobe: undefined;
   LookDetail: { id: string };
+
+  // 👇 ShareCard can be opened either with an existing look id
+  // OR directly from UploadOutfit with fresh AI + imageUri
+  ShareCard: {
+    id?: string;
+    ai?: {
+      score: number;
+      vibe: string;
+      tags: string[];
+      notes: string[];
+    };
+    imageUri?: string | null;
+  };
+
   Profile: undefined;
 };
 
@@ -60,6 +75,7 @@ function RootNavigator() {
           <Stack.Screen name="UploadOutfit" component={UploadOutfitScreen} />
           <Stack.Screen name="Wardrobe" component={WardrobeScreen} />
           <Stack.Screen name="LookDetail" component={LookDetailScreen} />
+          <Stack.Screen name="ShareCard" component={ShareCardScreen} />
           <Stack.Screen name="Profile" component={ProfileScreen} />
         </>
       ) : (

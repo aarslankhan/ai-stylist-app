@@ -4,7 +4,8 @@ import cors from "cors";
 import helmet from "helmet";
 import morgan from "morgan";
 import wardrobeRoutes from "./routes/wardrobe.routes";
-import uploadRoutes from "./routes/upload.routes"; // ⬅️ add this
+import uploadRoutes from "./routes/upload.routes";
+import aiRoutes from "./routes/ai.routes";
 
 const app = express();
 
@@ -21,7 +22,8 @@ app.get("/health", (req, res) => {
   res.json({ status: "ok" });
 });
 
-app.use("/api/upload-image", uploadRoutes);   // ⬅️ new
+app.use("/api/upload-image", uploadRoutes);
 app.use("/api/wardrobe", wardrobeRoutes);
+app.use("/api/ai", aiRoutes); // 👈 new
 
 export default app;

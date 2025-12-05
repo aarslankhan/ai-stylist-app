@@ -17,7 +17,9 @@ const FALLBACK_IMAGE =
   "https://images.unsplash.com/photo-1516646255117-d56e0c644dcd?auto=format&fit=crop&w=900&q=80";
 
 const ITEMS_PER_PAGE = 6;
-const MAX_LOOKS = 60; // soft cap message only for now
+const MAX_LOOKS = 60; // soft cap (just for the message)
+
+// ──────────────────────────────────────────────
 
 export default function WardrobeScreen() {
   const navigation = useNavigation<any>();
@@ -28,18 +30,26 @@ export default function WardrobeScreen() {
   const totalPages =
     looks.length === 0 ? 1 : Math.ceil(looks.length / ITEMS_PER_PAGE);
 
-  // Reset to first page if looks length shrinks (e.g. delete) or grows in a way that invalidates page index
   useEffect(() => {
     if (page > totalPages - 1) {
       setPage(0);
     }
   }, [looks.length, page, totalPages]);
 
-  const startIndex = page * ITEMS_PER_PAGE;
-  const endIndex = startIndex + ITEMS_PER_PAGE;
-  const pageLooks = looks.slice(startIndex, endIndex);
-
   const hasLooks = looks.length > 0;
+
+  const pageLooks = hasLooks
+    ? looks
+        .slice()
+        .sort((a, b) => {
+          const aCreated =
+            typeof a.createdAt === "number" ? a.createdAt : 0;
+          const bCreated =
+            typeof b.createdAt === "number" ? b.createdAt : 0;
+          return bCreated - aCreated;
+        })
+        .slice(page * ITEMS_PER_PAGE, (page + 1) * ITEMS_PER_PAGE)
+    : [];
 
   const handleBackHome = () => {
     navigation.navigate("Home");
@@ -49,7 +59,6 @@ export default function WardrobeScreen() {
     navigation.navigate("LookDetail", { id: look.id });
   };
 
-  // Re-uses the prefill flow in UploadOutfitScreen
   const handleShareCard = (look: Look) => {
     if (!look.imageUri) {
       Alert.alert(
@@ -59,13 +68,13 @@ export default function WardrobeScreen() {
       return;
     }
 
-    navigation.navigate("UploadOutfit", { prefillLook: look });
+    navigation.navigate("ShareCard", { id: look.id });
   };
 
   const handleDelete = (id: string) => {
     if (Platform.OS === "web") {
       const ok = window.confirm(
-        "Delete this look? This action cannot be undone."
+        "Delete this look from your wardrobe? This can’t be undone."
       );
       if (!ok) return;
       deleteLook(id);
@@ -74,7 +83,7 @@ export default function WardrobeScreen() {
 
     Alert.alert(
       "Delete this look?",
-      "This action cannot be undone.",
+      "This will remove the look and its AI notes from your wardrobe.",
       [
         { text: "Cancel", style: "cancel" },
         {
@@ -96,40 +105,40 @@ export default function WardrobeScreen() {
 
   const limitReached = looks.length >= MAX_LOOKS;
 
+  // ──────────────────────────────────────────────
+
   return (
     <View style={styles.page}>
-      {/* soft background glow */}
+      {/* background blobs */}
       <View style={styles.bgBlobPurple} />
       <View style={styles.bgBlobPink} />
+
+      {/* sticky top bar */}
+      <View style={styles.topBar}>
+        <TouchableOpacity onPress={handleBackHome} activeOpacity={0.8}>
+          <Text style={styles.backText}>← Home</Text>
+        </TouchableOpacity>
+
+        <Text style={styles.topTitle}>Wardrobe</Text>
+
+        <View style={styles.countPill}>
+          <Text style={styles.countNumber}>{looks.length}</Text>
+          <Text style={styles.countLabel}>
+            {looks.length === 1 ? "look" : "looks"}
+          </Text>
+        </View>
+      </View>
 
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.contentInner}>
-          {/* top breadcrumb + count */}
-          <View style={styles.headerRow}>
-            <View style={styles.breadcrumbRow}>
-              <TouchableOpacity onPress={handleBackHome} activeOpacity={0.8}>
-                <Text style={styles.breadcrumbLink}>Home</Text>
-              </TouchableOpacity>
-              <Text style={styles.breadcrumbSeparator}>/</Text>
-              <Text style={styles.breadcrumbCurrent}>Wardrobe</Text>
-            </View>
-
-            <View style={styles.countPill}>
-              <Text style={styles.countNumber}>{looks.length}</Text>
-              <Text style={styles.countLabel}>
-                {looks.length === 1 ? "look" : "looks"}
-              </Text>
-            </View>
-          </View>
-
-          {/* section title + helper copy */}
+          {/* header copy */}
           <Text style={styles.pageTitle}>Your smart wardrobe</Text>
           <Text style={styles.pageSubtitle}>
             Every outfit you&apos;ve rated lives here. Tap a card to see the
-            full AI breakdown, share a social card, or tidy up old looks.
+            full AI breakdown, open the share card, or tidy up old looks.
           </Text>
 
           {/* soft limit message */}
@@ -157,7 +166,7 @@ export default function WardrobeScreen() {
                           <Image
                             source={{ uri: look.imageUri ?? FALLBACK_IMAGE }}
                             style={styles.cardImage}
-                            resizeMode="cover"
+                            resizeMode="contain"
                           />
 
                           {typeof look.score === "number" && (
@@ -187,34 +196,30 @@ export default function WardrobeScreen() {
                           </View>
                         )}
 
-                        {/* footer buttons */}
+                        {/* footer row */}
                         <View style={styles.cardFooterRow}>
                           <TouchableOpacity
-                            style={styles.footerButtonPrimary}
-                            activeOpacity={0.9}
+                            style={styles.cardLink}
+                            activeOpacity={0.8}
                             onPress={() => handleOpenDetail(look)}
                           >
-                            <Text style={styles.footerButtonPrimaryText}>
-                              Details
-                            </Text>
+                            <Text style={styles.cardLinkText}>View details</Text>
                           </TouchableOpacity>
 
                           <TouchableOpacity
-                            style={styles.footerButtonSecondary}
-                            activeOpacity={0.9}
+                            style={styles.cardLink}
+                            activeOpacity={0.8}
                             onPress={() => handleShareCard(look)}
                           >
-                            <Text style={styles.footerButtonSecondaryText}>
-                              Share card
-                            </Text>
+                            <Text style={styles.cardLinkText}>Share card</Text>
                           </TouchableOpacity>
 
                           <TouchableOpacity
                             style={styles.deleteButton}
-                            activeOpacity={0.7}
+                            activeOpacity={0.8}
                             onPress={() => handleDelete(look.id)}
                           >
-                            <Text style={styles.deleteButtonText}>✕</Text>
+                            <Text style={styles.deleteButtonText}>Delete</Text>
                           </TouchableOpacity>
                         </View>
                       </View>
@@ -223,7 +228,7 @@ export default function WardrobeScreen() {
                 ))}
               </View>
 
-              {/* pagination controls */}
+              {/* pagination */}
               {totalPages > 1 && (
                 <View style={styles.paginationRow}>
                   <TouchableOpacity
@@ -231,8 +236,8 @@ export default function WardrobeScreen() {
                       styles.paginationButton,
                       page === 0 && styles.paginationButtonDisabled,
                     ]}
-                    onPress={handlePrevPage}
                     disabled={page === 0}
+                    onPress={handlePrevPage}
                   >
                     <Text
                       style={[
@@ -240,7 +245,7 @@ export default function WardrobeScreen() {
                         page === 0 && styles.paginationButtonTextDisabled,
                       ]}
                     >
-                      ← Previous
+                      Previous
                     </Text>
                   </TouchableOpacity>
 
@@ -251,10 +256,11 @@ export default function WardrobeScreen() {
                   <TouchableOpacity
                     style={[
                       styles.paginationButton,
-                      page === totalPages - 1 && styles.paginationButtonDisabled,
+                      page === totalPages - 1 &&
+                        styles.paginationButtonDisabled,
                     ]}
-                    onPress={handleNextPage}
                     disabled={page === totalPages - 1}
+                    onPress={handleNextPage}
                   >
                     <Text
                       style={[
@@ -263,7 +269,7 @@ export default function WardrobeScreen() {
                           styles.paginationButtonTextDisabled,
                       ]}
                     >
-                      Next →
+                      Next
                     </Text>
                   </TouchableOpacity>
                 </View>
@@ -271,17 +277,18 @@ export default function WardrobeScreen() {
             </>
           ) : (
             <View style={styles.emptyState}>
-              <Text style={styles.emptyTitle}>Nothing in your wardrobe yet</Text>
+              <Text style={styles.emptyTitle}>No looks saved yet</Text>
               <Text style={styles.emptySubtitle}>
-                Upload today&apos;s fit, get a rating, and we&apos;ll save it
-                here so you can track your style glow-up over time.
+                Once you rate an outfit from the upload screen, it will show up
+                here with its AI score, notes, and tags.
               </Text>
+
               <TouchableOpacity
                 style={styles.emptyButton}
-                activeOpacity={0.9}
+                activeOpacity={0.85}
                 onPress={() => navigation.navigate("UploadOutfit")}
               >
-                <Text style={styles.emptyButtonText}>Upload an outfit</Text>
+                <Text style={styles.emptyButtonText}>Add your first look</Text>
               </TouchableOpacity>
             </View>
           )}
@@ -291,11 +298,12 @@ export default function WardrobeScreen() {
   );
 }
 
+// ──────────────────────────────────────────────
+
 const styles = StyleSheet.create({
   page: {
     flex: 1,
     backgroundColor: "#020617",
-    position: "relative",
   },
   bgBlobPurple: {
     position: "absolute",
@@ -309,244 +317,241 @@ const styles = StyleSheet.create({
   },
   bgBlobPink: {
     position: "absolute",
-    top: -40,
-    right: -80,
-    width: 260,
-    height: 260,
+    bottom: -60,
+    right: -40,
+    width: 220,
+    height: 220,
     borderRadius: 999,
-    backgroundColor: "rgba(244,114,182,0.25)",
-    opacity: 0.6,
+    backgroundColor: "rgba(244,114,182,0.35)",
+    opacity: 0.7,
   },
-  scrollContent: {
+
+  topBar: {
     paddingHorizontal: 16,
-    paddingTop: 24,
-    paddingBottom: 40,
-  },
-  contentInner: {
-    width: "100%",
-    maxWidth: 640,
-    alignSelf: "center",
-  },
-  headerRow: {
+    paddingTop: 8,
+    paddingBottom: 10,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: 12,
+    zIndex: 10,
   },
-  breadcrumbRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-  },
-  breadcrumbLink: {
+  backText: {
     fontSize: 13,
     color: "#9CA3AF",
   },
-  breadcrumbSeparator: {
-    fontSize: 13,
-    color: "#4B5563",
-  },
-  breadcrumbCurrent: {
-    fontSize: 13,
-    color: "#F9FAFB",
+  topTitle: {
+    fontSize: 18,
     fontWeight: "600",
+    color: "#F9FAFB",
   },
   countPill: {
+    flexDirection: "row",
+    alignItems: "center",
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 999,
     backgroundColor: "rgba(15,23,42,0.9)",
     borderWidth: 1,
-    borderColor: "rgba(55,65,81,0.8)",
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
+    borderColor: "rgba(148,163,184,0.7)",
   },
   countNumber: {
     fontSize: 13,
     fontWeight: "600",
-    color: "#F9FAFB",
+    color: "#E5E7EB",
+    marginRight: 4,
   },
   countLabel: {
     fontSize: 11,
     color: "#9CA3AF",
   },
+
+  scrollContent: {
+    paddingHorizontal: 24,
+    paddingBottom: 40,
+  },
+  contentInner: {
+    paddingTop: 4,
+  },
+
   pageTitle: {
-    fontSize: 22,
+    fontSize: 18,
+    fontWeight: "600",
     color: "#F9FAFB",
-    fontWeight: "700",
     marginBottom: 4,
   },
   pageSubtitle: {
     fontSize: 13,
     color: "#9CA3AF",
-    marginBottom: 10,
+    lineHeight: 19,
+    marginBottom: 12,
   },
+
   limitRow: {
-    marginBottom: 16,
+    marginBottom: 12,
   },
   limitText: {
-    fontSize: 11,
+    fontSize: 12,
     color: "#9CA3AF",
+    lineHeight: 17,
   },
   limitStrong: {
     color: "#E5E7EB",
     fontWeight: "600",
   },
+
   cardsGrid: {
-    width: "100%",
-    gap: 16,
+    flexDirection: "row",
+    flexWrap: "wrap",
+    marginHorizontal: -6,
+    marginTop: 4,
   },
   cardWrapper: {
     width: "100%",
+    paddingHorizontal: 6,
+    marginBottom: 12,
   },
   card: {
-    borderRadius: 24,
-    backgroundColor: "rgba(15,23,42,0.96)",
+    borderRadius: 18,
     borderWidth: 1,
-    borderColor: "#111827",
+    borderColor: "rgba(148,163,184,0.7)",
+    backgroundColor: "rgba(15,23,42,0.98)",
     overflow: "hidden",
   },
-  imageWrapper: {
+    imageWrapper: {
     width: "100%",
-    aspectRatio: 3 / 4,
+    aspectRatio: 3 / 4,      // 🔙 back to the original 3:4 card shape
     backgroundColor: "#020617",
+    position: "relative",
   },
   cardImage: {
     width: "100%",
-    height: "100%",
+    height: "100%",          // fills the wrapper instead of a fixed height
   },
+
   scoreBadge: {
     position: "absolute",
     right: 12,
-    bottom: 12,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+    bottom: 10,
+    paddingHorizontal: 9,
+    paddingVertical: 4,
     borderRadius: 999,
-    backgroundColor: "rgba(21,128,61,0.9)",
+    backgroundColor: "rgba(34,197,94,0.9)",
     flexDirection: "row",
     alignItems: "flex-end",
-    gap: 2,
   },
   scoreValue: {
-    fontSize: 15,
+    fontSize: 13,
     fontWeight: "700",
     color: "#ECFDF5",
   },
   scoreSuffix: {
-    fontSize: 11,
-    color: "#BBF7D0",
+    fontSize: 10,
+    color: "#DCFCE7",
+    marginLeft: 4,
   },
+
   cardBody: {
     paddingHorizontal: 12,
     paddingVertical: 10,
-    gap: 8,
   },
   vibeText: {
-    fontSize: 14,
-    color: "#F9FAFB",
-    fontWeight: "600",
+    fontSize: 13,
+    fontWeight: "500",
+    color: "#E5E7EB",
+    marginBottom: 6,
   },
   tagsRow: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 6,
+    marginBottom: 8,
   },
   tagPill: {
     paddingHorizontal: 8,
-    paddingVertical: 4,
+    paddingVertical: 3,
     borderRadius: 999,
-    backgroundColor: "rgba(15,23,42,0.9)",
-    borderWidth: 1,
-    borderColor: "#374151",
+    backgroundColor: "rgba(79,70,229,0.18)",
+    marginRight: 6,
+    marginBottom: 4,
   },
   tagText: {
     fontSize: 11,
-    color: "#E5E7EB",
+    color: "#C7D2FE",
   },
+
   cardFooterRow: {
     flexDirection: "row",
     alignItems: "center",
     marginTop: 4,
   },
-  footerButtonPrimary: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 999,
-    backgroundColor: "#6366F1",
+  cardLink: {
+    marginRight: 10,
   },
-  footerButtonPrimaryText: {
+  cardLinkText: {
     fontSize: 12,
-    color: "#F9FAFB",
-    fontWeight: "600",
-  },
-  footerButtonSecondary: {
-    marginLeft: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: "#4B5563",
-    backgroundColor: "rgba(15,23,42,0.9)",
-  },
-  footerButtonSecondaryText: {
-    fontSize: 12,
-    color: "#E5E7EB",
+    color: "#A5B4FC",
+    fontWeight: "500",
   },
   deleteButton: {
     marginLeft: "auto",
-    paddingHorizontal: 8,
+    paddingHorizontal: 10,
     paddingVertical: 4,
+    borderRadius: 999,
+    backgroundColor: "rgba(239,68,68,0.08)",
   },
   deleteButtonText: {
-    fontSize: 14,
-    color: "#6B7280",
+    fontSize: 11,
+    color: "#FCA5A5",
+    fontWeight: "600",
   },
+
   emptyState: {
-    marginTop: 40,
-    padding: 20,
+    marginTop: 36,
     borderRadius: 20,
-    backgroundColor: "rgba(15,23,42,0.96)",
     borderWidth: 1,
-    borderColor: "#111827",
+    borderColor: "rgba(55,65,81,0.9)",
+    backgroundColor: "rgba(15,23,42,0.96)",
+    paddingVertical: 22,
+    paddingHorizontal: 18,
+    alignItems: "center",
   },
   emptyTitle: {
-    fontSize: 18,
+    fontSize: 15,
+    fontWeight: "600",
     color: "#F9FAFB",
-    fontWeight: "700",
     marginBottom: 6,
   },
   emptySubtitle: {
-    fontSize: 13,
+    fontSize: 12,
     color: "#9CA3AF",
+    lineHeight: 18,
     marginBottom: 14,
+    textAlign: "center",
   },
   emptyButton: {
-    alignSelf: "flex-start",
-    paddingHorizontal: 14,
-    paddingVertical: 8,
     borderRadius: 999,
-    backgroundColor: "#6366F1",
+    backgroundColor: "#4F46E5",
+    paddingHorizontal: 18,
+    paddingVertical: 9,
   },
   emptyButtonText: {
     fontSize: 13,
-    color: "#F9FAFB",
     fontWeight: "600",
+    color: "#F9FAFB",
   },
+
   paginationRow: {
     marginTop: 16,
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
-    gap: 8,
+    justifyContent: "center",
   },
   paginationButton: {
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 999,
     borderWidth: 1,
-    borderColor: "#4B5563",
-    backgroundColor: "rgba(15,23,42,0.9)",
+    borderColor: "rgba(148,163,184,0.7)",
+    marginHorizontal: 6,
   },
   paginationButtonDisabled: {
     opacity: 0.4,

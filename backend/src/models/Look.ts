@@ -8,6 +8,10 @@ export interface ILook extends Document {
   vibe: string | null;
   tags: string[];
   notes: string[];
+  analysis?: string[];        // full analysis bullets
+  suggestions?: string[];     // full suggestions bullets
+  analysisShort?: string[];   // card bullets
+  suggestionsShort?: string[];// card bullets
   createdAt: Date;
   updatedAt: Date;
 }
@@ -21,6 +25,10 @@ const LookSchema = new Schema<ILook>(
     vibe: { type: String, default: null },
     tags: { type: [String], default: [] },
     notes: { type: [String], default: [] },
+    analysis: { type: [String], default: [] },
+    suggestions: { type: [String], default: [] },
+    analysisShort: { type: [String], default: [] },
+    suggestionsShort: { type: [String], default: [] },
   },
   { timestamps: true }
 );

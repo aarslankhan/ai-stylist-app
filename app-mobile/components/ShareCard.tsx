@@ -7,6 +7,8 @@ export type ShareCardAi = {
   vibe: string;
   notes: string[];
   tags: string[];
+  analysisShort?: string[];
+  suggestionsShort?: string[];
 };
 
 type ShareCardProps = {
@@ -15,44 +17,98 @@ type ShareCardProps = {
   ai: ShareCardAi;
 };
 
+// Clamp long AI lines so they fit nicely in ~2 rows on the card
+const clampForShareCard = (text: string, maxChars = 120): string => {
+  if (!text) return "";
+  if (text.length <= maxChars) return text;
+
+  const shortened = text.slice(0, maxChars);
+  const lastSpace = shortened.lastIndexOf(" ");
+
+  const safeCut =
+    lastSpace > 40 ? shortened.slice(0, lastSpace) : shortened;
+
+  return safeCut.trim() + "…";
+};
+
+/**
+ * Shareable 4:5 outfit card.
+ *
+ * Layout:
+ *  - Top: photo with score pill
+ *  - Middle: vibe + tags
+ *  - Bottom: Aura's Analysis & Aura's Suggestions (compact bullets)
+ */
 export const ShareCard: React.FC<ShareCardProps> = ({
   imageUri,
   fallbackImage,
   ai,
 }) => {
-  const displayNotes = ai.notes.slice(0, 2); // tighter
+  const score =
+    typeof ai?.score === "number" && !Number.isNaN(ai.score)
+      ? ai.score
+      : 7.5;
+
+  const vibe = ai?.vibe || "Styled outfit";
+
+
+  const tags: string[] = Array.isArray(ai?.tags) ? ai.tags : [];
+
+  const rawAnalysisShort: string[] =
+    Array.isArray(ai.analysisShort) && ai.analysisShort.length > 0
+      ? ai.analysisShort
+      : Array.isArray(ai.notes)
+        ? ai.notes.slice(0, 3)
+        : [];
+
+  const rawSuggestionsShort: string[] =
+    Array.isArray(ai.suggestionsShort) && ai.suggestionsShort.length > 0
+      ? ai.suggestionsShort
+      : Array.isArray(ai.notes)
+        ? ai.notes.slice(3, 5)
+        : [];
+
+  const analysisLines = rawAnalysisShort
+    .slice(0, 3)
+    .map((line) => clampForShareCard(line));
+
+  const suggestionLines = rawSuggestionsShort
+    .slice(0, 2)
+    .map((line) => clampForShareCard(line));
+
+  const hasSuggestions = suggestionLines.length > 0;
+
 
   return (
     <View style={styles.card}>
-      {/* Full, dominant image block – no cropping, uses letterboxing if needed */}
-      <View style={styles.imageWrapper}>
+      {/* PHOTO */}
+      <View style={styles.imageContainer}>
         <Image
           source={{ uri: imageUri ?? fallbackImage }}
           style={styles.image}
           resizeMode="contain"
         />
-
-        {/* Score overlay badge */}
-        <View style={styles.scoreBadge}>
-          <Text style={styles.scoreValue}>{ai.score.toFixed(1)}</Text>
-          <Text style={styles.scoreLabel}>/10</Text>
+        {/* <View style={styles.imageGradient} /> */}
+        <View style={styles.scorePill}>
+          <Text style={styles.scoreValue}>{score.toFixed(1)}</Text>
+          <Text style={styles.scoreSuffix}>/10</Text>
         </View>
       </View>
 
-      {/* Content block under image */}
-      <View style={styles.content}>
-        {/* Vibe text */}
+      {/* CONTENT */}
+      <View style={styles.body}>
+        {/* vibe */}
         <View style={styles.vibeBlock}>
-          <Text style={styles.vibeTitle}>Today&apos;s fit</Text>
+          <Text style={styles.vibeTitle}>Aura&apos;s vibe</Text>
           <Text style={styles.vibeText} numberOfLines={2}>
-            {ai.vibe}
+            {vibe}
           </Text>
         </View>
 
-        {/* Tags */}
-        {ai.tags && ai.tags.length > 0 && (
+        {/* tags */}
+        {tags.length > 0 && (
           <View style={styles.tagsRow}>
-            {ai.tags.slice(0, 4).map((tag, idx) => (
+            {tags.slice(0, 4).map((tag, idx) => (
               <View key={idx} style={styles.tagPill}>
                 <Text style={styles.tagText}>{tag}</Text>
               </View>
@@ -60,89 +116,122 @@ export const ShareCard: React.FC<ShareCardProps> = ({
           </View>
         )}
 
-        {/* Notes */}
-        {displayNotes.length > 0 && (
-          <View style={styles.notesBlock}>
-            {displayNotes.map((note, idx) => (
-              <View key={idx} style={styles.noteRow}>
-                <Text style={styles.bullet}>•</Text>
-                <Text style={styles.noteText} numberOfLines={2}>
-                  {note}
-                </Text>
-              </View>
-            ))}
-          </View>
-        )}
+        {/* analysis + suggestions */}
+        <View style={styles.analysisWrapper}>
+          {analysisLines.length > 0 && (
+            <View
+              style={[
+                styles.sectionBlock,
+                hasSuggestions && styles.sectionBlockDivider,
+              ]}
+            >
+              <Text style={styles.sectionTitle}>Aura&apos;s Analysis</Text>
+              {analysisLines.map((line, idx) => (
+                <View key={`a-${idx}`} style={styles.noteRow}>
+                  <Text style={styles.bullet}>•</Text>
+                  <Text style={styles.noteText} numberOfLines={2}>
+                    {line}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          )}
 
-        {/* Footer branding */}
-        <View className="footer" style={styles.footer}>
-          <View>
-            <Text style={styles.footerBrand}>AI Stylist</Text>
-            <Text style={styles.footerSub}>Your personal digital wardrobe</Text>
+          {hasSuggestions && (
+            <View style={styles.sectionBlock}>
+              <Text style={styles.sectionTitle}>Aura&apos;s Suggestions</Text>
+              {suggestionLines.map((line, idx) => (
+                <View key={`s-${idx}`} style={styles.noteRow}>
+                  <Text style={styles.bullet}>•</Text>
+                  <Text style={styles.noteText} numberOfLines={2}>
+                    {line}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          )}
+        </View>
+
+        {/* footer brand */}
+        <View style={styles.footerRow}>
+          <View style={{ flexShrink: 1 }}>
+            <Text style={styles.footerBrand}>AI Stylist · Aura</Text>
+            <Text style={styles.footerSub} numberOfLines={1}>
+              Style rating generated by your personal AI stylist.
+            </Text>
           </View>
-          <Text style={styles.footerHandle}>@ai.stylist.app</Text>
+          <Text style={styles.footerHandle}>@yourapphandle</Text>
         </View>
       </View>
     </View>
   );
 };
 
+export default ShareCard;
+
 const styles = StyleSheet.create({
   card: {
-    width: "100%",          // take up parent width
-    maxWidth: 360,          // but don't exceed desktop preview size
-    aspectRatio: 4 / 5,     // keep IG 4:5 feel on all devices
+    width: "100%", // full width of the shell (ShareCardScreen handles maxWidth)
+    aspectRatio: 2 / 3,
     borderRadius: 24,
-    backgroundColor: "#020617",
-    borderWidth: 1,
-    borderColor: "rgba(148,163,184,0.7)",
     overflow: "hidden",
+    backgroundColor: "#020617",
   },
-  imageWrapper: {
-    width: "100%",
-    flex: 0.6,              // ~60% of card height for the image
-    overflow: "hidden",
+
+  // IMAGE
+  imageContainer: {
+    marginTop: "1%",
+    flex: 0.69,
+    position: "relative",
     backgroundColor: "#020617",
-    justifyContent: "center",
-    alignItems: "center",
   },
   image: {
     width: "100%",
     height: "100%",
   },
-  scoreBadge: {
+  imageGradient: {
     position: "absolute",
-    bottom: 10,
-    right: 10,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: 0,
+    backgroundColor: "rgba(15,23,42,0.9)",
+  },
+  scorePill: {
+    position: "absolute",
+    right: 14,
+    bottom: 12,
+    paddingHorizontal: 11,
     paddingVertical: 6,
-    paddingHorizontal: 10,
     borderRadius: 999,
+    backgroundColor: "rgba(34,197,94,0.95)",
     flexDirection: "row",
     alignItems: "flex-end",
-    backgroundColor: "rgba(15,23,42,0.9)",
-    borderWidth: 1,
-    borderColor: "rgba(34,197,94,0.7)",
   },
   scoreValue: {
-    fontSize: 18,
-    fontWeight: "800",
-    color: "#BBF7D0",
-    marginRight: 4,
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#ECFDF5",
   },
-  scoreLabel: {
+  scoreSuffix: {
     fontSize: 11,
-    color: "#6EE7B7",
+    color: "#DCFCE7",
+    marginLeft: 4,
   },
-  content: {
+
+  // BODY
+  body: {
     flex: 1,
     paddingHorizontal: 14,
     paddingVertical: 10,
+    backgroundColor: "#020617",
   },
+
   vibeBlock: {
-    marginBottom: 6,
+    marginBottom: 4,
   },
   vibeTitle: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: "600",
     color: "#E5E7EB",
     marginBottom: 2,
@@ -151,52 +240,75 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: "#9CA3AF",
   },
+
   tagsRow: {
     flexDirection: "row",
     flexWrap: "wrap",
+    marginTop: 4,
     marginBottom: 6,
-    marginTop: 2,
   },
   tagPill: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
     borderRadius: 999,
-    backgroundColor: "rgba(55,65,81,0.95)",
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    backgroundColor: "rgba(79,70,229,0.2)",
     marginRight: 6,
     marginBottom: 4,
   },
   tagText: {
     fontSize: 10,
-    color: "#E5E7EB",
+    color: "#C7D2FE",
   },
-  notesBlock: {
+
+  analysisWrapper: {
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "rgba(55,65,81,0.9)",
+    backgroundColor: "rgba(15,23,42,0.98)",
+    paddingHorizontal: 10,
+    paddingVertical: 8,
     marginBottom: 6,
+  },
+  sectionBlock: {
+    marginBottom: 4,
+  },
+  sectionBlockDivider: {
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(55,65,81,0.8)",
+    paddingBottom: 4,
+    marginBottom: 4,
+  },
+  sectionTitle: {
+    fontSize: 11,
+    fontWeight: "600",
+    color: "#E5E7EB",
+    marginBottom: 2,
   },
   noteRow: {
     flexDirection: "row",
+    alignItems: "flex-start",
     marginBottom: 2,
   },
   bullet: {
-    color: "#9CA3AF",
+    fontSize: 10,
+    color: "#6366F1",
     marginRight: 4,
     marginTop: 1,
   },
   noteText: {
-    fontSize: 11,
-    color: "#E5E7EB",
     flex: 1,
+    fontSize: 10,
+    color: "#E5E7EB",
+    lineHeight: 14,
   },
-  footer: {
-    borderTopWidth: 1,
-    borderTopColor: "rgba(31,41,55,0.9)",
-    paddingTop: 6,
-    marginTop: "auto",
+
+  footerRow: {
     flexDirection: "row",
+    alignItems: "flex-end",
     justifyContent: "space-between",
-    alignItems: "center",
   },
   footerBrand: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: "700",
     color: "#F9FAFB",
   },
@@ -207,5 +319,6 @@ const styles = StyleSheet.create({
   footerHandle: {
     fontSize: 10,
     color: "#6B7280",
+    marginLeft: 8,
   },
 });

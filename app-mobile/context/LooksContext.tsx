@@ -17,6 +17,10 @@ export type Look = {
   vibe: string | null;
   tags: string[];
   notes: string[];
+  analysis?: string[];
+  suggestions?: string[];
+  analysisShort?: string[];
+  suggestionsShort?: string[];
   createdAt: number; // timestamp (ms)
 };
 
@@ -29,6 +33,10 @@ type LooksContextValue = {
     vibe: string | null;
     tags: string[];
     notes: string[];
+    analysis?: string[];
+    suggestions?: string[];
+    analysisShort?: string[];
+    suggestionsShort?: string[];
     createdAt?: number;
   }) => void;
   deleteLook: (id: string) => void;
@@ -45,34 +53,40 @@ export function LooksProvider({ children }: { children: ReactNode }) {
 
   // --- Helper: map backend doc to local Look shape ---
   const mapBackendLookToLocal = (doc: any): Look | null => {
-    if (!doc) return null;
+  if (!doc) return null;
 
-    const id: string =
-      doc.clientId ||
-      doc.id ||
-      doc._id ||
-      Math.random().toString(36).slice(2);
+  const id: string =
+    doc.clientId ||
+    doc.id ||
+    doc._id ||
+    Math.random().toString(36).slice(2);
 
-    const createdAtMs =
-      doc.createdAt
-        ? new Date(doc.createdAt).getTime()
-        : Date.now();
+  const createdAtMs =
+    doc.createdAt ? new Date(doc.createdAt).getTime() : Date.now();
 
-    return {
-      id,
-      imageUri: doc.imageUrl ?? null,
-      score:
-        typeof doc.score === "number"
-          ? doc.score
-          : doc.score != null
-          ? Number(doc.score)
-          : null,
-      vibe: typeof doc.vibe === "string" ? doc.vibe : null,
-      tags: Array.isArray(doc.tags) ? doc.tags : [],
-      notes: Array.isArray(doc.notes) ? doc.notes : [],
-      createdAt: createdAtMs,
-    };
+  return {
+    id,
+    imageUri: doc.imageUrl ?? null,
+    score:
+      typeof doc.score === "number"
+        ? doc.score
+        : doc.score != null
+        ? Number(doc.score)
+        : null,
+    vibe: typeof doc.vibe === "string" ? doc.vibe : null,
+    tags: Array.isArray(doc.tags) ? doc.tags : [],
+    notes: Array.isArray(doc.notes) ? doc.notes : [],
+    analysis: Array.isArray(doc.analysis) ? doc.analysis : undefined,
+    suggestions: Array.isArray(doc.suggestions) ? doc.suggestions : undefined,
+    analysisShort: Array.isArray(doc.analysisShort)
+      ? doc.analysisShort
+      : undefined,
+    suggestionsShort: Array.isArray(doc.suggestionsShort)
+      ? doc.suggestionsShort
+      : undefined,
+    createdAt: createdAtMs,
   };
+};
 
   // --- 1) Initial load from AsyncStorage ---
   useEffect(() => {
@@ -233,22 +247,27 @@ export function LooksProvider({ children }: { children: ReactNode }) {
 
   // --- 5) Local mutations ---
 
-  const addLook: LooksContextValue["addLook"] = (input) => {
-    const id = input.id ?? Math.random().toString(36).slice(2);
-    const createdAt = input.createdAt ?? Date.now();
+const addLook: LooksContextValue["addLook"] = (input) => {
+  const id = input.id ?? Math.random().toString(36).slice(2);
+  const createdAt = input.createdAt ?? Date.now();
 
-    const newLook: Look = {
-      id,
-      createdAt,
-      imageUri: input.imageUri ?? null,
-      score: input.score ?? null,
-      vibe: input.vibe ?? null,
-      tags: input.tags ?? [],
-      notes: input.notes ?? [],
-    };
-
-    setLooks((prev) => [newLook, ...prev]);
+  const newLook: Look = {
+    id,
+    createdAt,
+    imageUri: input.imageUri ?? null,
+    score: input.score ?? null,
+    vibe: input.vibe ?? null,
+    tags: input.tags ?? [],
+    notes: input.notes ?? [],
+    analysis: input.analysis,
+    suggestions: input.suggestions,
+    analysisShort: input.analysisShort,
+    suggestionsShort: input.suggestionsShort,
   };
+
+  setLooks((prev) => [newLook, ...prev]);
+};
+
 
   const deleteLook: LooksContextValue["deleteLook"] = (id) => {
     setLooks((prev) => prev.filter((look) => look.id !== id));
