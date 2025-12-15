@@ -1,11 +1,17 @@
 // src/config/openai.ts
 import OpenAI from "openai";
-import { ENV } from "./env";
+import { ENV, FMS_OPENAI_MODEL } from "./env";
 
 if (!ENV.OPENAI_API_KEY) {
-  console.warn("⚠️ OPENAI_API_KEY is not set. OpenAI analysis will fail.");
+ 
 }
 
 export const openaiClient = new OpenAI({
   apiKey: ENV.OPENAI_API_KEY,
 });
+
+// Global default model (for other features if you want)
+export const defaultOpenAIModel = process.env.OPENAI_MODEL || "gpt-4.1-mini";
+
+// 🔥 Dedicated model for Find My Style
+export const fmsOpenAIModel = FMS_OPENAI_MODEL;

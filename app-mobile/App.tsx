@@ -15,16 +15,23 @@ import WardrobeScreen from "./app/WardrobeScreen";
 import LookDetailScreen from "./app/LookDetailScreen";
 import ProfileScreen from "./app/ProfileScreen";
 import ShareCardScreen from "./app/ShareCardScreen";
+import FindMyStyleScreen from "./app/FindMyStyleScreen";
+import FindMyStyleResultScreen from "./app/FindMyStyleResultScreen";
+
+// 🔥 New Today’s Outfit screens
+import TodaysOutfitOccasionScreen from "./app/TodaysOutfitOccasionScreen";
+import TodaysOutfitBuilderScreen from "./app/TodaysOutfitBuilderScreen";
+import TodaysOutfitResultScreen from "./app/TodaysOutfitResultScreen";
+import { StyleProfileResult } from "./services/styleProfileApi";
 
 export type RootStackParamList = {
   Login: undefined;
   Home: undefined;
+
   UploadOutfit: { prefillLook?: any } | undefined;
   Wardrobe: undefined;
   LookDetail: { id: string };
 
-  // 👇 ShareCard can be opened either with an existing look id
-  // OR directly from UploadOutfit with fresh AI + imageUri
   ShareCard: {
     id?: string;
     ai?: {
@@ -37,6 +44,25 @@ export type RootStackParamList = {
   };
 
   Profile: undefined;
+
+  // FMS
+  FindMyStyle: undefined;
+  FindMyStyleResult: {
+    profile: any;
+  };
+
+  // Today’s Outfit flow
+  TodaysOutfitOccasion: undefined;
+  TodaysOutfitBuilder: {
+    occasionId: string;
+    occasionLabel: string;
+    styleProfile: StyleProfileResult;
+  };
+  TodaysOutfitResult: {
+    occasionId: string;
+    occasionLabel: string;
+    result: any;
+  };
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -77,6 +103,27 @@ function RootNavigator() {
           <Stack.Screen name="LookDetail" component={LookDetailScreen} />
           <Stack.Screen name="ShareCard" component={ShareCardScreen} />
           <Stack.Screen name="Profile" component={ProfileScreen} />
+
+          {/* FMS */}
+          <Stack.Screen name="FindMyStyle" component={FindMyStyleScreen} />
+          <Stack.Screen
+            name="FindMyStyleResult"
+            component={FindMyStyleResultScreen}
+          />
+
+          {/* Today’s Outfit flow */}
+          <Stack.Screen
+            name="TodaysOutfitOccasion"
+            component={TodaysOutfitOccasionScreen}
+          />
+          <Stack.Screen
+            name="TodaysOutfitBuilder"
+            component={TodaysOutfitBuilderScreen}
+          />
+          <Stack.Screen
+            name="TodaysOutfitResult"
+            component={TodaysOutfitResultScreen}
+          />
         </>
       ) : (
         <Stack.Screen name="Login" component={LoginScreen} />

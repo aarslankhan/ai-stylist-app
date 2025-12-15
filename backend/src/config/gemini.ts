@@ -1,15 +1,23 @@
 // src/config/gemini.ts
 import { GoogleGenerativeAI } from "@google/generative-ai";
-import { ENV } from "./env";
+import { ENV, FMS_GEMINI_MODEL, FMS_GEMINI_API_KEY } from "./env";
 
+// Global Gemini client (for outfit analysis / other features)
 if (!ENV.GEMINI_API_KEY) {
-  console.warn("⚠️ GEMINI_API_KEY is not set. Gemini analysis will fail.");
+  console.warn("⚠️ GEMINI_API_KEY is not set. Global Gemini features may fail.");
 }
+const globalGenAI = new GoogleGenerativeAI(ENV.GEMINI_API_KEY);
+export const geminiModel = globalGenAI.getGenerativeModel({
+  model: process.env.GEMINI_MODEL || "gemini-2.5-flash",
+});
 
-const genAI = new GoogleGenerativeAI(ENV.GEMINI_API_KEY);
-
-// Model that supports images + JSON mode.
-// You can swap to another model later if you prefer.
-export const geminiModel = genAI.getGenerativeModel({
-  model: "gemini-2.0-flash-001",
+// 🔥 FMS-dedicated Gemini client
+if (!FMS_GEMINI_API_KEY) {
+  console.warn(
+    "⚠️ FMS_GEMINI_API_KEY is not set. Find My Style Gemini analysis will fail."
+  );
+}
+const fmsGenAI = new GoogleGenerativeAI(FMS_GEMINI_API_KEY);
+export const fmsGeminiModel = fmsGenAI.getGenerativeModel({
+  model: FMS_GEMINI_MODEL,
 });

@@ -6,13 +6,13 @@ import { geminiModel } from "../config/gemini";
 export type AiProviderName = "openai" | "gemini";
 
 export type OutfitAnalysis = {
-  score: number;        // 0–10 float
-  vibe: string;         // short headline
-  analysis: string[];   // what the stylist sees
-  suggestions: string[];// what to improve / try
-  tags: string[];       // style tags
-  analysisShort: string[];     // short bullets for share card
-  suggestionsShort: string[];  // short bullets for share card
+  score: number; // 0–10 float
+  vibe: string; // short headline
+  analysis: string[]; // what the stylist sees
+  suggestions: string[]; // what to improve / try
+  tags: string[]; // style tags
+  analysisShort: string[]; // short bullets for share card
+  suggestionsShort: string[]; // short bullets for share card
 };
 
 const normalizeProvider = (raw: string | undefined): AiProviderName => {
@@ -29,6 +29,29 @@ console.log(
 
 export const getActiveAiProvider = (): AiProviderName => ACTIVE_PROVIDER;
 
+// Helper: detect rate-limit style errors
+function isRateLimitError(err: any): boolean {
+  const status =
+    err?.status ??
+    err?.response?.status ??
+    err?.statusCode ??
+    undefined;
+
+  const msgRaw =
+    err?.response?.data?.error?.message ??
+    err?.error ??
+    err?.message ??
+    "";
+  const msg = typeof msgRaw === "string" ? msgRaw : String(msgRaw);
+
+  return (
+    status === 429 ||
+    /rate limit/i.test(msg) ||
+    /TPM/i.test(msg) ||
+    /RPM/i.test(msg)
+  );
+}
+
 export async function analyzeOutfit(
   imageBase64: string,
   mimeType: string
@@ -37,10 +60,32 @@ export async function analyzeOutfit(
     throw new Error("imageBase64 is required");
   }
 
+  // GEMINI as primary
   if (ACTIVE_PROVIDER === "gemini") {
-    return analyzeWithGemini(imageBase64, mimeType);
-  } else {
-    return analyzeWithOpenAI(imageBase64, mimeType);
+    try {
+      return await analyzeWithGemini(imageBase64, mimeType);
+    } catch (err: any) {
+      if (isRateLimitError(err)) {
+        console.warn(
+          "[AI] Gemini rate-limited for analyzeOutfit, falling back to OpenAI"
+        );
+        return await analyzeWithOpenAI(imageBase64, mimeType);
+      }
+      throw err;
+    }
+  }
+
+  // OPENAI as primary
+  try {
+    return await analyzeWithOpenAI(imageBase64, mimeType);
+  } catch (err: any) {
+    if (isRateLimitError(err)) {
+      console.warn(
+        "[AI] OpenAI rate-limited for analyzeOutfit, falling back to Gemini"
+      );
+      return await analyzeWithGemini(imageBase64, mimeType);
+    }
+    throw err;
   }
 }
 
@@ -108,8 +153,7 @@ async function analyzeWithOpenAI(
               `- NO markdown, NO commentary around the JSON.`,
               `- Describe ONLY what is actually visible in the outfit.`,
               `- analysisShort[i] must be the short form of analysis[i].`,
-              `- suggestionsShort[i] must be the short form of suggestions[i].`
-
+              `- suggestionsShort[i] must be the short form of suggestions[i].`,
             ].join("\n"),
           },
           {
@@ -185,8 +229,7 @@ async function analyzeWithGemini(
     `- NO markdown, NO commentary around the JSON.`,
     `- Describe ONLY what is actually visible in the outfit.`,
     `- analysisShort[i] must be the short form of analysis[i].`,
-    `- suggestionsShort[i] must be the short form of suggestions[i].`
-
+    `- suggestionsShort[i] must be the short form of suggestions[i].`,
   ].join("\n");
 
   const result = await geminiModel.generateContent({
@@ -228,56 +271,53 @@ function normalizeAiJson(raw: string): OutfitAnalysis {
     throw new Error("Failed to parse AI response as JSON");
   }
 
-  // tolerate old shapes (notes instead of analysis/suggestions)
   const analysisFromOld =
     Array.isArray(parsed.analysis) && parsed.analysis.length > 0
       ? parsed.analysis
       : Array.isArray(parsed.notes)
-        ? parsed.notes
-        : [];
+      ? parsed.notes
+      : [];
 
   const suggestionsFromOld =
     Array.isArray(parsed.suggestions) && parsed.suggestions.length > 0
       ? parsed.suggestions
       : [];
 
-
   const tags: string[] = Array.isArray(parsed.tags)
     ? parsed.tags.map(String).slice(0, 8)
     : ["Everyday", "Casual"];
 
   const toShort = (line: string, maxWords = 8): string =>
-  line.split(/\s+/).slice(0, maxWords).join(" ");
+    line.split(/\s+/).slice(0, maxWords).join(" ");
 
-const analysis: string[] = Array.isArray(parsed.analysis)
-  ? parsed.analysis.map(String)
-  : [];
+  const analysis: string[] = Array.isArray(parsed.analysis)
+    ? parsed.analysis.map(String)
+    : analysisFromOld.map(String);
 
-const suggestions: string[] = Array.isArray(parsed.suggestions)
-  ? parsed.suggestions.map(String)
-  : [];
+  const suggestions: string[] = Array.isArray(parsed.suggestions)
+    ? parsed.suggestions.map(String)
+    : suggestionsFromOld.map(String);
 
-const analysisShort: string[] = Array.isArray(parsed.analysisShort)
-  ? parsed.analysisShort.map(String)
-  : analysis.map((line) => toShort(line));
+  const analysisShort: string[] = Array.isArray(parsed.analysisShort)
+    ? parsed.analysisShort.map(String)
+    : analysis.map((line) => toShort(line));
 
-const suggestionsShort: string[] = Array.isArray(parsed.suggestionsShort)
-  ? parsed.suggestionsShort.map(String)
-  : suggestions.map((line) => toShort(line));
+  const suggestionsShort: string[] = Array.isArray(parsed.suggestionsShort)
+    ? parsed.suggestionsShort.map(String)
+    : suggestions.map((line) => toShort(line));
 
-const normalized: OutfitAnalysis = {
-  score:
-    typeof parsed.score === "number"
-      ? parsed.score
-      : Number(parsed.score ?? 1) || 1,
-  vibe: typeof parsed.vibe === "string" ? parsed.vibe : "Styled outfit",
-  analysis: analysis.slice(0, 6),
-  suggestions: suggestions.slice(0, 6),
-  tags,
-  analysisShort: analysisShort.slice(0, 6),
-  suggestionsShort: suggestionsShort.slice(0, 6),
-};
+  const normalized: OutfitAnalysis = {
+    score:
+      typeof parsed.score === "number"
+        ? parsed.score
+        : Number(parsed.score ?? 1) || 1,
+    vibe: typeof parsed.vibe === "string" ? parsed.vibe : "Styled outfit",
+    analysis: analysis.slice(0, 6),
+    suggestions: suggestions.slice(0, 6),
+    tags,
+    analysisShort: analysisShort.slice(0, 6),
+    suggestionsShort: suggestionsShort.slice(0, 6),
+  };
 
-return normalized;
-
+  return normalized;
 }

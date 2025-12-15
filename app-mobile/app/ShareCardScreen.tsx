@@ -27,6 +27,7 @@ import type { RootStackParamList } from "../App";
 import { auth } from "../services/firebase";
 import { API_BASE_URL } from "../config/api";
 
+
 // Local AI type – extended to support short lines for ShareCard
 type ShareCardAi = {
   score: number;
@@ -393,8 +394,8 @@ const ShareCardScreen: React.FC = () => {
             vibe: ai.vibe,
             tags: ai.tags,
             notes: combinedNotes,
-            // analysisShort: ai.analysisShort,
-            // suggestionsShort: ai.suggestionsShort,
+            analysisShort: ai.analysisShort,
+            suggestionsShort: ai.suggestionsShort,
           }),
         });
 
@@ -487,7 +488,7 @@ const ShareCardScreen: React.FC = () => {
   };
 
   return (
-    <View style={styles.page}>
+    <SafeAreaView style={styles.page} edges={["top", "bottom"]}>
       {/* soft background blobs */}
       <View style={styles.bgBlobPurple} />
       <View style={styles.bgBlobPink} />
@@ -558,7 +559,7 @@ const ShareCardScreen: React.FC = () => {
           </Text>
         )}
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 };
 
@@ -567,17 +568,17 @@ export default ShareCardScreen;
 const styles = StyleSheet.create({
   page: {
     flex: 1,
-    backgroundColor: "#020617",
+    backgroundColor: "#F3F4F6",
   },
-  bgBlobPurple: {
+
+    bgBlobPurple: {
     position: "absolute",
     top: -80,
     left: -60,
     width: 260,
     height: 260,
     borderRadius: 999,
-    backgroundColor: "rgba(129,140,248,0.35)",
-    opacity: 0.7,
+    backgroundColor: "rgba(191,219,254,0.5)",
   },
   bgBlobPink: {
     position: "absolute",
@@ -586,83 +587,207 @@ const styles = StyleSheet.create({
     width: 220,
     height: 220,
     borderRadius: 999,
-    backgroundColor: "rgba(244,114,182,0.35)",
-    opacity: 0.7,
-  },
-  topBar: {
-    paddingHorizontal: 20,
-    paddingTop: 8,
-    paddingBottom: 10,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    zIndex: 10,
+    backgroundColor: "rgba(254,226,226,0.5)",
   },
 
+  topBar: {
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 8,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    backgroundColor: "#FFFFFF",
+    borderBottomWidth: 0.5,
+    borderBottomColor: "#E5E7EB",
+    zIndex: 10,
+  },
+  topLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
   backText: {
     fontSize: 13,
-    color: "#9CA3AF",
+    color: "#6B7280",
+    marginRight: 10,
   },
   title: {
     fontSize: 18,
-    fontWeight: "600",
-    color: "#F9FAFB",
+    fontWeight: "700",
+    color: "#111827",
   },
-  scrollContent: {
-    paddingHorizontal: 24,
-    paddingBottom: 40,
-  },
-  helperText: {
-    marginTop: 10,
-    fontSize: 13,
-    color: "#9CA3AF",
-    marginBottom: 14,
-  },
+
   viewShotWrapper: {
-    alignSelf: "center",
-    borderRadius: 24,
-    overflow: "hidden",
-    borderWidth: 1,
-    borderColor: "rgba(148,163,184,0.6)",
-    backgroundColor: "#020617",
+    flex: 1,
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 8,
+    alignItems: "center",
+    justifyContent: "center",
   },
-  buttonRow: {
+
+  // the card itself
+  card: {
+    width: 320,
+    borderRadius: 24,
+    padding: 16,
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+  },
+  cardHeaderRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 8,
+  },
+  brandText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#111827",
+  },
+  scoreBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderRadius: 999,
+    backgroundColor: "#F3F4FF",
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  scoreText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#111827",
+  },
+  scoreSuffix: {
+    fontSize: 11,
+    color: "#6B7280",
+    marginLeft: 2,
+  },
+
+  imageBlock: {
+    borderRadius: 18,
+    overflow: "hidden",
+    marginBottom: 10,
+    backgroundColor: "#E5E7EB",
+  },
+  outfitImage: {
+    width: "100%",
+    height: 220,
+  },
+
+  analysisBlock: {
+    marginTop: 4,
+    marginBottom: 6,
+  },
+  sectionLabel: {
+    fontSize: 11,
+    letterSpacing: 1,
+    textTransform: "uppercase",
+    color: "#9CA3AF",
+    marginBottom: 2,
+  },
+  analysisText: {
+    fontSize: 13,
+    color: "#4B5563",
+    lineHeight: 18,
+  },
+  suggestionsBlock: {
+    marginTop: 4,
+  },
+  suggestionText: {
+    fontSize: 13,
+    color: "#4B5563",
+    lineHeight: 18,
+  },
+
+  tagsRow: {
     flexDirection: "row",
     flexWrap: "wrap",
-    marginTop: 18,
+    gap: 6,
+    marginTop: 8,
   },
-  buttonSpacing: {
-    marginRight: 10,
-    marginBottom: 10,
+  tagPill: {
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    backgroundColor: "#F3F4F6",
+  },
+  tagText: {
+    fontSize: 11,
+    color: "#4B5563",
+  },
+
+  footerMetaRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginTop: 8,
+  },
+  dateText: {
+    fontSize: 11,
+    color: "#9CA3AF",
+  },
+  appTag: {
+    fontSize: 11,
+    color: "#6B7280",
+  },
+
+  buttonRow: {
+    flexDirection: "row",
+    gap: 10,
+    paddingHorizontal: 16,
+    paddingBottom: 16,
   },
   primaryButton: {
+    flex: 1,
+    backgroundColor: "#111827",
     borderRadius: 999,
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    backgroundColor: "#4F46E5",
+    paddingVertical: 12,
+    alignItems: "center",
   },
   primaryButtonText: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: "600",
     color: "#F9FAFB",
   },
   secondaryButton: {
+    flex: 1,
     borderRadius: 999,
-    paddingHorizontal: 18,
-    paddingVertical: 10,
+    paddingVertical: 12,
     borderWidth: 1,
-    borderColor: "rgba(148,163,184,0.8)",
-    backgroundColor: "rgba(15,23,42,0.95)",
+    borderColor: "#E5E7EB",
+    backgroundColor: "#FFFFFF",
+    alignItems: "center",
   },
   secondaryButtonText: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: "500",
-    color: "#E5E7EB",
+    color: "#111827",
   },
+
+  scrollContent: {
+    paddingHorizontal: 24,
+    paddingBottom: 40,
+  },
+
+  helperText: {
+    marginTop: 10,
+    fontSize: 13,
+    color: "#6B7280",
+    marginBottom: 14,
+  },
+
+ 
+
+  buttonSpacing: {
+    marginRight: 10,
+    marginBottom: 10,
+  },
+
+  
   footerHint: {
-    marginTop: 6,
-    fontSize: 11,
-    color: "#9CA3AF",
+    marginTop: 10,
+    fontSize: 12,
+    color: "#6B7280",
   },
   centered: {
     flex: 1,

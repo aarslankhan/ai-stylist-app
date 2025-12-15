@@ -20,6 +20,8 @@ import * as ImageManipulator from "expo-image-manipulator";
 import { useLooks } from "../context/LooksContext";
 import { auth } from "../services/firebase";
 import { API_BASE_URL } from "../config/api";
+import { uploadImageToS3 } from "../services/uploadImage";
+
 
 type AiResult = {
   score: number;
@@ -205,47 +207,27 @@ const UploadOutfitScreenInner: React.FC = () => {
         ...(ai.suggestions || []),
       ];
 
-      // WEB path
+      let s3Url: string | null = null;
+
+      // ───────────── WEB path (base64 → /upload-image) ─────────────
       if (isWeb) {
         if (!imageBase64) {
           console.log("Web upload: no base64 available.");
           return null;
         }
 
-        console.log("▶ WEB upload via /upload-image (base64 → S3)");
+        console.log("▶ WEB upload via shared uploadImageToS3 helper");
 
         const dataUrl = `data:image/jpeg;base64,${imageBase64}`;
 
-        const uploadRes = await fetch(`${API_BASE_URL}/upload-image`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({
-            imageBase64: dataUrl,
-          }),
+        s3Url = await uploadImageToS3({
+          base64: dataUrl,
+          mimeType: imageMimeType || "image/jpeg",
+          token,
         });
 
-        if (!uploadRes.ok) {
-          const text = await uploadRes.text();
-          console.log(
-            "❌ Web upload /upload-image failed:",
-            uploadRes.status,
-            text
-          );
-          return null;
-        }
-
-        const uploadJson = await uploadRes.json();
-        const s3Url: string | undefined =
-          uploadJson.url || uploadJson.fileUrl || uploadJson.imageUrl;
-
         if (!s3Url) {
-          console.log(
-            "Web upload: no URL returned from /upload-image.",
-            uploadJson
-          );
+          console.log("❌ Web: uploadImageToS3 returned null");
           return null;
         }
 
@@ -271,7 +253,6 @@ const UploadOutfitScreenInner: React.FC = () => {
           }),
         });
 
-
         if (!wardrobeRes.ok) {
           const text = await wardrobeRes.text();
           console.log(
@@ -286,74 +267,28 @@ const UploadOutfitScreenInner: React.FC = () => {
         return s3Url;
       }
 
-      // NATIVE path
+      // ───────────── NATIVE path (presign + PUT) ─────────────
       if (!imageUri) {
         console.log("Native upload: no imageUri.");
         return null;
       }
 
-      console.log("▶ NATIVE upload: requesting presigned URL…");
+      console.log("▶ NATIVE upload via shared uploadImageToS3 helper…");
 
-      const presignRes = await fetch(`${API_BASE_URL}/upload-image/presign`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          mimeType: imageMimeType || "image/jpeg",
-        }),
+      const nativeUrl = await uploadImageToS3({
+        uri: imageUri,
+        mimeType: imageMimeType || "image/jpeg",
+        token,
       });
 
-      if (!presignRes.ok) {
-        const text = await presignRes.text();
-        console.log(
-          "❌ Native: failed to get presigned URL:",
-          presignRes.status,
-          text
-        );
+      if (!nativeUrl) {
+        console.log("❌ Native: uploadImageToS3 returned null");
         return null;
       }
 
-      const presignJson = await presignRes.json();
-      const uploadUrl: string | undefined = presignJson.uploadUrl;
-      const fileUrl: string | undefined = presignJson.fileUrl;
-
-      if (!uploadUrl || !fileUrl) {
-        console.log(
-          "Native presign: response missing uploadUrl/fileUrl",
-          presignJson
-        );
-        return null;
-      }
-
-      console.log("✅ Native: got presigned URLs", {
-        uploadUrl: uploadUrl.slice(0, 80) + "...",
-        fileUrl,
+      console.log("✅ Native: got S3 URL, now creating wardrobe entry.", {
+        nativeUrl,
       });
-
-      const mimeType = imageMimeType || "image/jpeg";
-
-      const fileResponse = await fetch(imageUri);
-      const blob = await (fileResponse as any).blob();
-
-      console.log("Native blob size:", blob.size);
-
-      const putRes = await fetch(uploadUrl, {
-        method: "PUT",
-        headers: {
-          "Content-Type": mimeType,
-        },
-        body: blob,
-      });
-
-      if (!putRes.ok) {
-        const text = await putRes.text().catch(() => "");
-        console.log("❌ Native: PUT to S3 failed:", putRes.status, text);
-        return null;
-      }
-
-      console.log("✅ Native: PUT to S3 OK, now creating wardrobe entry.");
 
       const wardrobeRes = await fetch(`${API_BASE_URL}/wardrobe`, {
         method: "POST",
@@ -363,7 +298,7 @@ const UploadOutfitScreenInner: React.FC = () => {
         },
         body: JSON.stringify({
           clientId,
-          imageUrl: fileUrl,
+          imageUrl: nativeUrl,
           score: ai.score,
           vibe: ai.vibe,
           tags: ai.tags,
@@ -375,7 +310,6 @@ const UploadOutfitScreenInner: React.FC = () => {
         }),
       });
 
-
       if (!wardrobeRes.ok) {
         const text = await wardrobeRes.text();
         console.log(
@@ -386,8 +320,8 @@ const UploadOutfitScreenInner: React.FC = () => {
         return null;
       }
 
-      console.log("✅ Native: Look synced to wardrobe with S3 URL", fileUrl);
-      return fileUrl;
+      console.log("✅ Native: Look synced to wardrobe with S3 URL", nativeUrl);
+      return nativeUrl;
     } catch (err) {
       console.log("❌ Error in syncLookToBackend:", err);
       return null;
@@ -1052,9 +986,10 @@ export default UploadOutfitScreenInner;
 // ─────────────────────── STYLES ───────────────────────
 
 const styles = StyleSheet.create({
+
   page: {
     flex: 1,
-    backgroundColor: "#020617",
+    backgroundColor: "#F3F4F6",
   },
   bgBlobPurple: {
     position: "absolute",
@@ -1063,7 +998,7 @@ const styles = StyleSheet.create({
     width: 260,
     height: 260,
     borderRadius: 999,
-    backgroundColor: "rgba(129,140,248,0.35)",
+    backgroundColor: "rgba(191,219,254,0.6)",
     opacity: 0.7,
   },
   bgBlobPink: {
@@ -1073,7 +1008,7 @@ const styles = StyleSheet.create({
     width: 220,
     height: 220,
     borderRadius: 999,
-    backgroundColor: "rgba(244,114,182,0.35)",
+    backgroundColor: "rgba(254,202,232,0.6)",
     opacity: 0.7,
   },
   topBar: {
@@ -1084,20 +1019,24 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     zIndex: 10,
+    backgroundColor: "#FFFFFF",
+    borderBottomWidth: 0.5,
+    borderBottomColor: "#E5E7EB",
   },
+
   topLeft: {
     flexDirection: "row",
     alignItems: "center",
   },
   backText: {
     fontSize: 13,
-    color: "#9CA3AF",
+    color: "#6B7280",
     marginRight: 10,
   },
   title: {
     fontSize: 18,
     fontWeight: "600",
-    color: "#F9FAFB",
+    color: "#111827",
   },
   topRight: {},
   betaTag: {
@@ -1150,7 +1089,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 18,
     fontWeight: "600",
-    color: "#F9FAFB",
+    color: "#111827",
     marginBottom: 4,
   },
   sectionBody: {
@@ -1163,10 +1102,10 @@ const styles = StyleSheet.create({
   outfitPlaceholder: {
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: "rgba(148,163,184,0.7)",
+    borderColor: "#E5E7EB",
     padding: 14,
     justifyContent: "flex-start",
-    backgroundColor: "rgba(15,23,42,0.96)",
+    backgroundColor: "#FFFFFF",
     marginBottom: 12,
   },
   outfitImage: {
@@ -1182,7 +1121,7 @@ const styles = StyleSheet.create({
   outfitTitle: {
     fontSize: 14,
     fontWeight: "600",
-    color: "#E5E7EB",
+    color: "#111827",
     marginBottom: 4,
   },
   outfitBody: {
@@ -1240,13 +1179,13 @@ const styles = StyleSheet.create({
     padding: 12,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: "rgba(55,65,81,0.9)",
-    backgroundColor: "rgba(15,23,42,0.9)",
+    borderColor: "#E5E7EB",
+    backgroundColor: "#FFFFFF",
   },
   hintTitle: {
     fontSize: 12,
     fontWeight: "600",
-    color: "#E5E7EB",
+    color: "#111827",
     marginBottom: 4,
   },
   hintBody: {
@@ -1254,13 +1193,12 @@ const styles = StyleSheet.create({
     color: "#9CA3AF",
     lineHeight: 16,
   },
-
   aiCard: {
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: "rgba(148,163,184,0.7)",
+    borderColor: "#E5E7EB",
     padding: 14,
-    backgroundColor: "rgba(15,23,42,0.96)",
+    backgroundColor: "#FFFFFF",
     marginTop: 4,
   },
   aiHeaderRow: {
@@ -1308,7 +1246,7 @@ const styles = StyleSheet.create({
   notesSectionTitle: {
     fontSize: 12,
     fontWeight: "600",
-    color: "#E5E7EB",
+    color: "#111827",
     marginBottom: 4,
   },
   noteRow: {
@@ -1325,7 +1263,7 @@ const styles = StyleSheet.create({
   noteText: {
     flex: 1,
     fontSize: 12,
-    color: "#E5E7EB",
+    color: "#374151",
     lineHeight: 17,
   },
   tagRow: {
@@ -1361,7 +1299,7 @@ const styles = StyleSheet.create({
   emptyAiTitle: {
     fontSize: 14,
     fontWeight: "600",
-    color: "#E5E7EB",
+    color: "#111827",
     marginBottom: 4,
   },
   emptyAiBody: {
@@ -1375,7 +1313,7 @@ const styles = StyleSheet.create({
   bottomHintTitle: {
     fontSize: 12,
     fontWeight: "600",
-    color: "#E5E7EB",
+    color: "#111827",
     marginBottom: 4,
   },
   bottomHintBody: {
@@ -1385,52 +1323,52 @@ const styles = StyleSheet.create({
   },
 
   analyzingOverlay: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: "rgba(15,23,42,0.92)",
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(15,23,42,0.35)",
     alignItems: "center",
     justifyContent: "center",
-    paddingHorizontal: 32,
     zIndex: 50,
   },
   analyzingCard: {
-    width: "100%",
+    width: "82%",
     maxWidth: 360,
     borderRadius: 24,
     paddingVertical: 24,
     paddingHorizontal: 20,
-    backgroundColor: "rgba(15,23,42,0.98)",
-    borderWidth: 1,
-    borderColor: "rgba(148,163,184,0.7)",
     alignItems: "center",
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    shadowColor: "#000000",
+    shadowOpacity: 0.12,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 10 },
+    elevation: 4,
   },
   analyzingIconWrapper: {
-    width: 72,
-    height: 72,
+    width: 48,
+    height: 48,
     borderRadius: 999,
-    borderWidth: 2,
-    borderColor: "rgba(129,140,248,0.8)",
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 14,
-    backgroundColor: "rgba(15,23,42,0.9)",
+    marginBottom: 10,
+    backgroundColor: "#EEF2FF",
   },
   analyzingIcon: {
-    fontSize: 34,
+    fontSize: 26,
   },
   analyzingTitle: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: "600",
-    color: "#F9FAFB",
-    marginBottom: 6,
+    color: "#111827",
+    marginBottom: 4,
+    textAlign: "center",
   },
   analyzingSubtitle: {
     fontSize: 13,
-    color: "#9CA3AF",
-    textAlign: "center",
+    color: "#6B7280",
     lineHeight: 18,
+    textAlign: "center",
   },
+
 });

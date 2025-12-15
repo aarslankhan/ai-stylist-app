@@ -1,11 +1,30 @@
 // src/routes/ai.routes.ts
 import { Router } from "express";
-import { analyzeOutfitHandler } from "../controllers/ai.controller";
+import { firebaseAuth } from "../middleware/auth";
+import {
+  analyzeLookHandler,
+  analyzeBodyProfileHandler,
+  getStyleProfileHandler,
+  deleteStyleProfileHandler,
+  todaysOutfitHandler,
+} from "../controllers/ai.controller";
 
 const router = Router();
 
-// If you add auth middleware later, plug it here.
-// e.g. router.post("/analyze-outfit", requireAuth, analyzeOutfitHandler);
-router.post("/analyze-outfit", analyzeOutfitHandler);
+// All AI routes require auth
+router.use(firebaseAuth);
+
+// Outfit analysis for wardrobe / looks
+router.post("/analyze-look", analyzeLookHandler);
+// Backwards-compatible alias used by the mobile app:
+router.post("/analyze-outfit", analyzeLookHandler);
+
+// Find My Style – body profile + style blueprint
+router.post("/analyze-body-profile", analyzeBodyProfileHandler);
+router.get("/style-profile", getStyleProfileHandler);
+router.delete("/style-profile", deleteStyleProfileHandler);
+
+// Today’s outfit (occasion + wardrobe items)
+router.post("/todays-outfit", todaysOutfitHandler);
 
 export default router;

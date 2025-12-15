@@ -15,7 +15,7 @@ import { useNavigation } from "@react-navigation/native";
 import { useAuth } from "../context/AuthContext";
 
 export default function ProfileScreen() {
-  const navigation = useNavigation<any>();
+  const navigation = useNavigation();
   const { user, updateDisplayName, changePassword, signOutUser } = useAuth();
 
   const initialName =
@@ -38,7 +38,6 @@ export default function ProfileScreen() {
       Alert.alert("Name required", "Please enter a name.");
       return;
     }
-
     try {
       setSavingName(true);
       await updateDisplayName(trimmed);
@@ -62,7 +61,6 @@ export default function ProfileScreen() {
       );
       return;
     }
-
     if (newPassword.length < 6) {
       Alert.alert(
         "Password too short",
@@ -70,7 +68,6 @@ export default function ProfileScreen() {
       );
       return;
     }
-
     try {
       setChangingPassword(true);
       await changePassword(currentPassword, newPassword);
@@ -81,7 +78,8 @@ export default function ProfileScreen() {
       console.log("ProfileScreen.changePassword error", error);
       Alert.alert(
         "Could not change password",
-        error?.message ?? "Please check your current password and try again."
+        error?.message ??
+          "Please check your current password and try again."
       );
     } finally {
       setChangingPassword(false);
@@ -93,130 +91,136 @@ export default function ProfileScreen() {
   };
 
   return (
-    <View style={styles.page}>
+    <KeyboardAvoidingView
+      style={styles.page}
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
+    >
+      {/* background blobs to match rest of app */}
       <View style={styles.bgBlobPurple} />
       <View style={styles.bgBlobTeal} />
 
-      <KeyboardAvoidingView
+      <ScrollView
         style={{ flex: 1 }}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
       >
-        <ScrollView
-          contentContainerStyle={styles.scrollContent}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
-        >
-          <View style={styles.contentInner}>
-            {/* Top bar */}
-            <View style={styles.topBar}>
-              <View style={styles.topLeft}>
-                <TouchableOpacity onPress={handleBack}>
-                  <Text style={styles.backText}>← Home</Text>
-                </TouchableOpacity>
-                <Text style={styles.title}>Profile & settings</Text>
+        <View style={styles.contentInner}>
+          {/* Top bar */}
+          <View style={styles.topBar}>
+            <TouchableOpacity
+              onPress={handleBack}
+              style={styles.topLeft}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.backText}>← Home</Text>
+            </TouchableOpacity>
+
+            <Text style={styles.title}>Profile & settings</Text>
+          </View>
+
+          {/* Account card */}
+          <View style={[styles.card, { marginBottom: 16 }]}>
+            <Text style={styles.cardTitle}>Account</Text>
+            <Text style={styles.cardSubtitle}>
+              Update how AI Stylist greets you and manage your password.
+            </Text>
+
+            {/* Email (readonly) */}
+            <View style={styles.fieldGroup}>
+              <Text style={styles.label}>Email</Text>
+              <View style={styles.readonlyInput}>
+                <Text style={styles.readonlyText}>
+                  {user?.email ?? "No email"}
+                </Text>
               </View>
             </View>
 
-            {/* Card */}
-            <View style={styles.card}>
-              <Text style={styles.cardTitle}>Account</Text>
-              <Text style={styles.cardSubtitle}>
-                Update how AI Stylist greets you and manage your password.
+            {/* Display name */}
+            <View style={styles.fieldGroup}>
+              <Text style={styles.label}>Display name</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Your name"
+                placeholderTextColor="#4B5563"
+                value={name}
+                onChangeText={setName}
+                autoCapitalize="words"
+              />
+              <Text style={styles.helperText}>
+                This is the name shown in your greeting on the Home screen.
               </Text>
 
-              {/* Email */}
-              <View style={styles.fieldGroup}>
-                <Text style={styles.label}>Email</Text>
-                <View style={styles.readonlyInput}>
-                  <Text style={styles.readonlyText}>
-                    {user?.email ?? "No email"}
-                  </Text>
-                </View>
-              </View>
-
-              {/* Name */}
-              <View style={styles.fieldGroup}>
-                <Text style={styles.label}>Display name</Text>
-                <TextInput
-                  value={name}
-                  onChangeText={setName}
-                  placeholder="Your name"
-                  placeholderTextColor="#6B7280"
-                  style={styles.input}
-                  autoCapitalize="words"
-                />
-                <Text style={styles.helperText}>
-                  This is the name shown in your greeting on the Home screen.
+              <TouchableOpacity
+                onPress={handleSaveName}
+                style={styles.primaryButton}
+                activeOpacity={0.8}
+                disabled={savingName}
+              >
+                <Text style={styles.primaryButtonText}>
+                  {savingName ? "Saving..." : "Save name"}
                 </Text>
-                <TouchableOpacity
-                  style={styles.primaryButton}
-                  onPress={handleSaveName}
-                  disabled={savingName}
-                  activeOpacity={0.9}
-                >
-                  <Text style={styles.primaryButtonText}>
-                    {savingName ? "Saving..." : "Save name"}
-                  </Text>
-                </TouchableOpacity>
-              </View>
+              </TouchableOpacity>
+            </View>
 
-              {/* Divider */}
-              <View style={styles.divider} />
+            <View style={styles.divider} />
 
-              {/* Password */}
-              <View style={styles.fieldGroup}>
-                <Text style={styles.label}>Change password</Text>
+            {/* Password */}
+            <View style={styles.fieldGroup}>
+              <Text style={styles.label}>Change password</Text>
+              <Text style={styles.helperText}>
+                For security reasons you&apos;ll need your current password
+                before choosing a new one.
+              </Text>
 
-                <TextInput
-                  value={currentPassword}
-                  onChangeText={setCurrentPassword}
-                  placeholder="Current password"
-                  placeholderTextColor="#6B7280"
-                  style={styles.input}
-                  secureTextEntry
-                />
+              <TextInput
+                style={[styles.input, { marginTop: 8 }]}
+                placeholder="Current password"
+                placeholderTextColor="#4B5563"
+                secureTextEntry
+                value={currentPassword}
+                onChangeText={setCurrentPassword}
+              />
 
-                <TextInput
-                  value={newPassword}
-                  onChangeText={setNewPassword}
-                  placeholder="New password"
-                  placeholderTextColor="#6B7280"
-                  style={styles.input}
-                  secureTextEntry
-                />
+              <TextInput
+                style={[styles.input, { marginTop: 8 }]}
+                placeholder="New password"
+                placeholderTextColor="#4B5563"
+                secureTextEntry
+                value={newPassword}
+                onChangeText={setNewPassword}
+              />
 
-                <Text style={styles.helperText}>
-                  For security reasons you&apos;ll need your current password
-                  before choosing a new one.
+              <TouchableOpacity
+                onPress={handleChangePassword}
+                style={styles.primaryButton}
+                activeOpacity={0.8}
+                disabled={changingPassword}
+              >
+                <Text style={styles.primaryButtonText}>
+                  {changingPassword ? "Updating..." : "Update password"}
                 </Text>
+              </TouchableOpacity>
+            </View>
 
-                <TouchableOpacity
-                  style={[styles.primaryButton, { marginTop: 4 }]}
-                  onPress={handleChangePassword}
-                  disabled={changingPassword}
-                  activeOpacity={0.9}
-                >
-                  <Text style={styles.primaryButtonText}>
-                    {changingPassword ? "Updating..." : "Update password"}
-                  </Text>
-                </TouchableOpacity>
-              </View>
-
-              {/* Danger zone */}
-              <View style={styles.dangerRow}>
-                <TouchableOpacity
-                  style={styles.outlineButton}
-                  onPress={handleSignOut}
-                  activeOpacity={0.9}
-                >
-                  <Text style={styles.outlineButtonText}>Sign out</Text>
-                </TouchableOpacity>
-              </View>
+            {/* Danger zone */}
+            <View style={styles.dangerRow}>
+              <TouchableOpacity
+                onPress={handleSignOut}
+                style={styles.outlineButton}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.outlineButtonText}>Sign out</Text>
+              </TouchableOpacity>
             </View>
           </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </View>
+
+          {/* 🔹 NOTE: personal style / body analysis card was here before.
+              It’s now intentionally removed so body analysis only lives on
+              the dedicated “My saved body analysis” flow. */}
+        </View>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -278,6 +282,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "700",
     color: "#F9FAFB",
+    marginTop: 8,
   },
   card: {
     borderRadius: 20,
@@ -295,76 +300,77 @@ const styles = StyleSheet.create({
   cardSubtitle: {
     fontSize: 12,
     color: "#9CA3AF",
-    marginBottom: 16,
+    marginBottom: 12,
   },
   fieldGroup: {
-    marginBottom: 18,
+    marginBottom: 16,
   },
   label: {
     fontSize: 12,
-    color: "#9CA3AF",
-    marginBottom: 6,
-  },
-  readonlyInput: {
-    backgroundColor: "#020617",
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: "#1F2937",
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-  },
-  readonlyText: {
-    fontSize: 13,
+    fontWeight: "600",
     color: "#E5E7EB",
+    marginBottom: 4,
   },
   input: {
-    backgroundColor: "#020617",
-    borderRadius: 10,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: "#1F2937",
     paddingHorizontal: 12,
     paddingVertical: 10,
+    fontSize: 14,
     color: "#F9FAFB",
-    fontSize: 13,
+    backgroundColor: "#020617",
+  },
+  readonlyInput: {
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#111827",
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    backgroundColor: "rgba(15,23,42,0.9)",
+  },
+  readonlyText: {
+    fontSize: 14,
+    color: "#9CA3AF",
   },
   helperText: {
     fontSize: 11,
-    color: "#6B7280",
-    marginTop: 6,
+    color: "#9CA3AF",
+    marginTop: 4,
   },
   primaryButton: {
     marginTop: 10,
-    alignSelf: "flex-start",
-    paddingHorizontal: 14,
-    paddingVertical: 8,
     borderRadius: 999,
     backgroundColor: "#6366F1",
+    paddingVertical: 10,
+    alignItems: "center",
+    justifyContent: "center",
   },
   primaryButtonText: {
-    fontSize: 13,
-    color: "#F9FAFB",
+    fontSize: 14,
     fontWeight: "600",
+    color: "#F9FAFB",
   },
   divider: {
     height: 1,
     backgroundColor: "#111827",
-    marginVertical: 8,
-    opacity: 0.7,
+    marginVertical: 12,
   },
   dangerRow: {
-    marginTop: 4,
+    marginTop: 8,
     flexDirection: "row",
-    justifyContent: "flex-end",
+    justifyContent: "flex-start",
   },
   outlineButton: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
     borderRadius: 999,
     borderWidth: 1,
     borderColor: "#4B5563",
+    paddingVertical: 10,
+    paddingHorizontal: 18,
   },
   outlineButtonText: {
     fontSize: 13,
-    color: "#F97373",
+    fontWeight: "500",
+    color: "#E5E7EB",
   },
 });

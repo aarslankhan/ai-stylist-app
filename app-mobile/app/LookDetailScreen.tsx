@@ -17,6 +17,8 @@ import {
 
 import { useLooks, type Look } from "../context/LooksContext";
 import type { RootStackParamList } from "../App";
+import { SafeAreaView } from "react-native-safe-area-context";
+
 
 type LookDetailRoute = RouteProp<RootStackParamList, "LookDetail">;
 
@@ -104,7 +106,7 @@ const LookDetailScreen: React.FC = () => {
   };
 
   return (
-    <View style={styles.page}>
+    <SafeAreaView style={styles.page} edges={["top", "bottom"]}>
       {/* background blobs */}
       <View style={styles.bgBlobPurple} />
       <View style={styles.bgBlobPink} />
@@ -244,7 +246,7 @@ const LookDetailScreen: React.FC = () => {
           </TouchableOpacity>
         </View>
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 };
 
@@ -253,7 +255,7 @@ export default LookDetailScreen;
 const styles = StyleSheet.create({
   page: {
     flex: 1,
-    backgroundColor: "#020617",
+    backgroundColor: "#F3F4F6",
   },
   bgBlobPurple: {
     position: "absolute",
@@ -262,7 +264,7 @@ const styles = StyleSheet.create({
     width: 260,
     height: 260,
     borderRadius: 999,
-    backgroundColor: "rgba(129,140,248,0.35)",
+    backgroundColor: "rgba(191,219,254,0.6)",
     opacity: 0.7,
   },
   bgBlobPink: {
@@ -272,9 +274,10 @@ const styles = StyleSheet.create({
     width: 220,
     height: 220,
     borderRadius: 999,
-    backgroundColor: "rgba(244,114,182,0.35)",
+    backgroundColor: "rgba(254,202,232,0.6)",
     opacity: 0.7,
   },
+
   topBar: {
     paddingHorizontal: 24,
     paddingTop: 8,
@@ -301,9 +304,9 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     overflow: "hidden",
     borderWidth: 1,
-    borderColor: "rgba(148,163,184,0.7)",
+    borderColor: "#E5E7EB",
     marginBottom: 18,
-    backgroundColor: "#020617",
+    backgroundColor: "#FFFFFF",
   },
   heroImage: {
     width: "100%",
@@ -333,8 +336,8 @@ const styles = StyleSheet.create({
   sectionCard: {
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: "rgba(148,163,184,0.7)",
-    backgroundColor: "rgba(15,23,42,0.98)",
+    borderColor: "#E5E7EB",
+    backgroundColor: "#FFFFFF",
     paddingHorizontal: 16,
     paddingVertical: 14,
     marginBottom: 14,
@@ -359,7 +362,7 @@ const styles = StyleSheet.create({
   },
   summaryValue: {
     fontSize: 13,
-    color: "#E5E7EB",
+    color: "#111827",
     fontWeight: "500",
   },
   ratingRow: {
@@ -414,7 +417,7 @@ const styles = StyleSheet.create({
   noteText: {
     flex: 1,
     fontSize: 12,
-    color: "#E5E7EB",
+    color: "#374151",
     lineHeight: 17,
   },
   tagRow: {
@@ -449,14 +452,14 @@ const styles = StyleSheet.create({
   },
   footerSecondary: {
     borderWidth: 1,
-    borderColor: "rgba(148,163,184,0.7)",
-    backgroundColor: "rgba(15,23,42,0.9)",
+    borderColor: "#E5E7EB",
+    backgroundColor: "#FFFFFF",
   },
-  footerSecondaryText: {
-    fontSize: 13,
-    color: "#E5E7EB",
-    fontWeight: "500",
-  },
+footerSecondaryText: {
+  fontSize: 13,
+  color: "#111827",
+  fontWeight: "500",
+},
   footerPrimary: {
     backgroundColor: "#4F46E5",
   },

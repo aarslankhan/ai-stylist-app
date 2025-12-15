@@ -12,6 +12,8 @@ import {
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { useLooks, type Look } from "../context/LooksContext";
+import { SafeAreaView } from "react-native-safe-area-context";
+
 
 const FALLBACK_IMAGE =
   "https://images.unsplash.com/photo-1516646255117-d56e0c644dcd?auto=format&fit=crop&w=900&q=80";
@@ -108,7 +110,7 @@ export default function WardrobeScreen() {
   // ──────────────────────────────────────────────
 
   return (
-    <View style={styles.page}>
+    <SafeAreaView style={styles.page} edges={["top", "bottom"]}>
       {/* background blobs */}
       <View style={styles.bgBlobPurple} />
       <View style={styles.bgBlobPink} />
@@ -294,7 +296,7 @@ export default function WardrobeScreen() {
           )}
         </View>
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -303,17 +305,17 @@ export default function WardrobeScreen() {
 const styles = StyleSheet.create({
   page: {
     flex: 1,
-    backgroundColor: "#020617",
+    backgroundColor: "#F3F4F6",
   },
-  bgBlobPurple: {
+ bgBlobPurple: {
     position: "absolute",
     top: -80,
     left: -60,
     width: 260,
     height: 260,
     borderRadius: 999,
-    backgroundColor: "rgba(129,140,248,0.35)",
-    opacity: 0.7,
+    backgroundColor: "rgba(129,140,248,0.18)",
+    opacity: 1,
   },
   bgBlobPink: {
     position: "absolute",
@@ -322,14 +324,15 @@ const styles = StyleSheet.create({
     width: 220,
     height: 220,
     borderRadius: 999,
-    backgroundColor: "rgba(244,114,182,0.35)",
-    opacity: 0.7,
+    backgroundColor: "rgba(244,114,182,0.18)",
+    opacity: 1,
   },
 
+  // top bar
   topBar: {
-    paddingHorizontal: 16,
+    paddingHorizontal: 24,
     paddingTop: 8,
-    paddingBottom: 10,
+    paddingBottom: 12,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
@@ -337,160 +340,180 @@ const styles = StyleSheet.create({
   },
   backText: {
     fontSize: 13,
-    color: "#9CA3AF",
+    color: "#6B7280", // soft grey instead of blue-grey
   },
   topTitle: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: "600",
-    color: "#F9FAFB",
+    color: "#111827", // main heading color
   },
   countPill: {
     flexDirection: "row",
     alignItems: "center",
+    borderRadius: 999,
+    backgroundColor: "#EEF2FF",
     paddingHorizontal: 10,
     paddingVertical: 4,
-    borderRadius: 999,
-    backgroundColor: "rgba(15,23,42,0.9)",
-    borderWidth: 1,
-    borderColor: "rgba(148,163,184,0.7)",
   },
   countNumber: {
     fontSize: 13,
-    fontWeight: "600",
-    color: "#E5E7EB",
+    fontWeight: "700",
+    color: "#4F46E5",
     marginRight: 4,
   },
   countLabel: {
-    fontSize: 11,
-    color: "#9CA3AF",
+    fontSize: 12,
+    color: "#4B5563",
   },
 
   scrollContent: {
     paddingHorizontal: 24,
-    paddingBottom: 40,
+    paddingBottom: 32,
   },
   contentInner: {
-    paddingTop: 4,
+    paddingTop: 8,
+    paddingBottom: 12,
   },
 
   pageTitle: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: "600",
-    color: "#F9FAFB",
+    color: "#111827",
     marginBottom: 4,
   },
   pageSubtitle: {
     fontSize: 13,
-    color: "#9CA3AF",
-    lineHeight: 19,
-    marginBottom: 12,
+    color: "#6B7280",
+    lineHeight: 18,
   },
 
   limitRow: {
-    marginBottom: 12,
+    marginTop: 16,
+    marginBottom: 10,
   },
   limitText: {
     fontSize: 12,
-    color: "#9CA3AF",
-    lineHeight: 17,
+    color: "#6B7280",
+    lineHeight: 18,
   },
   limitStrong: {
-    color: "#E5E7EB",
     fontWeight: "600",
+    color: "#111827",
   },
 
   cardsGrid: {
+    marginTop: 12,
     flexDirection: "row",
     flexWrap: "wrap",
     marginHorizontal: -6,
-    marginTop: 4,
   },
   cardWrapper: {
-    width: "100%",
+    width: "50%",
     paddingHorizontal: 6,
-    marginBottom: 12,
+    marginBottom: 14,
   },
+
   card: {
     borderRadius: 18,
+    backgroundColor: "#FFFFFF", // white card
     borderWidth: 1,
-    borderColor: "rgba(148,163,184,0.7)",
-    backgroundColor: "rgba(15,23,42,0.98)",
+    borderColor: "#E5E7EB",
+    padding: 8,
     overflow: "hidden",
+    shadowColor: "#000000",
+    shadowOpacity: 0.06,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 2,
   },
-    imageWrapper: {
-    width: "100%",
-    aspectRatio: 3 / 4,      // 🔙 back to the original 3:4 card shape
-    backgroundColor: "#020617",
-    position: "relative",
+
+  imageWrapper: {
+    borderRadius: 14,
+    overflow: "hidden",
+    backgroundColor: "#F3F4F6",
+    alignItems: "center",
+    justifyContent: "center",
   },
   cardImage: {
     width: "100%",
-    height: "100%",          // fills the wrapper instead of a fixed height
+    aspectRatio: 3 / 4,
   },
 
   scoreBadge: {
     position: "absolute",
-    right: 12,
-    bottom: 10,
-    paddingHorizontal: 9,
-    paddingVertical: 4,
+    top: 8,
+    right: 8,
     borderRadius: 999,
-    backgroundColor: "rgba(34,197,94,0.9)",
-    flexDirection: "row",
-    alignItems: "flex-end",
-  },
-  scoreValue: {
-    fontSize: 13,
-    fontWeight: "700",
-    color: "#ECFDF5",
-  },
-  scoreSuffix: {
-    fontSize: 10,
-    color: "#DCFCE7",
-    marginLeft: 4,
-  },
-
-  cardBody: {
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-  },
-  vibeText: {
-    fontSize: 13,
-    fontWeight: "500",
-    color: "#E5E7EB",
-    marginBottom: 6,
-  },
-  tagsRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    marginBottom: 8,
-  },
-  tagPill: {
+    backgroundColor: "rgba(15,23,42,0.76)",
     paddingHorizontal: 8,
     paddingVertical: 3,
+  },
+  scoreValue: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: "#F9FAFB",
+  },
+
+  vibeTag: {
+    marginTop: 8,
+    alignSelf: "flex-start",
     borderRadius: 999,
-    backgroundColor: "rgba(79,70,229,0.18)",
-    marginRight: 6,
-    marginBottom: 4,
+    backgroundColor: "#EEF2FF",
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  vibeText: {
+    fontSize: 11,
+    color: "#4F46E5",
+    fontWeight: "500",
+  },
+
+  tagsRow: {
+    marginTop: 6,
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 4,
+  },
+  tagPill: {
+    borderRadius: 999,
+    backgroundColor: "#F3F4F6",
+    paddingHorizontal: 6,
+    paddingVertical: 3,
   },
   tagText: {
     fontSize: 11,
-    color: "#C7D2FE",
+    color: "#4B5563",
   },
 
-  cardFooterRow: {
+  cardFooter: {
+    marginTop: 8,
     flexDirection: "row",
     alignItems: "center",
-    marginTop: 4,
   },
-  cardLink: {
-    marginRight: 10,
+  cardMeta: {
+    flex: 1,
+  },
+  cardMetaLabel: {
+    fontSize: 11,
+    color: "#9CA3AF",
+  },
+  cardMetaValue: {
+    fontSize: 12,
+    color: "#111827",
+    fontWeight: "500",
+  },
+
+  cardLinkRow: {
+    marginTop: 6,
+    flexDirection: "row",
+    alignItems: "center",
   },
   cardLinkText: {
     fontSize: 12,
-    color: "#A5B4FC",
+    color: "#4F46E5",
     fontWeight: "500",
   },
+
   deleteButton: {
     marginLeft: "auto",
     paddingHorizontal: 10,
@@ -500,7 +523,7 @@ const styles = StyleSheet.create({
   },
   deleteButtonText: {
     fontSize: 11,
-    color: "#FCA5A5",
+    color: "#DC2626",
     fontWeight: "600",
   },
 
@@ -508,21 +531,21 @@ const styles = StyleSheet.create({
     marginTop: 36,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: "rgba(55,65,81,0.9)",
-    backgroundColor: "rgba(15,23,42,0.96)",
+    borderColor: "#E5E7EB",
+    backgroundColor: "#FFFFFF",
     paddingVertical: 22,
     paddingHorizontal: 18,
     alignItems: "center",
   },
   emptyTitle: {
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: "600",
-    color: "#F9FAFB",
+    color: "#111827",
     marginBottom: 6,
   },
   emptySubtitle: {
-    fontSize: 12,
-    color: "#9CA3AF",
+    fontSize: 13,
+    color: "#6B7280",
     lineHeight: 18,
     marginBottom: 14,
     textAlign: "center",
@@ -550,21 +573,41 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     borderRadius: 999,
     borderWidth: 1,
-    borderColor: "rgba(148,163,184,0.7)",
+    borderColor: "#E5E7EB",
     marginHorizontal: 6,
+    backgroundColor: "#FFFFFF",
   },
   paginationButtonDisabled: {
     opacity: 0.4,
   },
   paginationButtonText: {
     fontSize: 12,
-    color: "#E5E7EB",
+    color: "#374151",
   },
   paginationButtonTextDisabled: {
-    color: "#6B7280",
+    color: "#9CA3AF",
   },
   paginationLabel: {
     fontSize: 12,
-    color: "#9CA3AF",
+    color: "#6B7280",
+  },
+  scoreSuffix: {
+    fontSize: 10,
+    color: "#DCFCE7",
+    marginLeft: 4,
+  },
+
+  cardBody: {
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+
+  cardFooterRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 4,
+  },
+  cardLink: {
+    marginRight: 10,
   },
 });
